@@ -7,16 +7,15 @@
 #include <string.h>     /* memset */
 #include <assert.h>     /* assert */
 
-#include "AdmissionCommon.h"              /* ADMISSION_PORT_NUMBER */
-#include "AdmissionDepartmentInterface.h" /* DEPARTMENTS */
-#include "AdmissionDb.h"                  /* AdmissionDb */
+#include "AdmissionCommon.h"     /* ADMISSION_PORT_NUMBER */
+#include "DepartmentRegistrar.h" /* DEPARTMENTS */
+#include "AdmissionDb.h"         /* AdmissionDb */
 
 
-const int ADMISSION_BACKLOG = 128;
-
-static int
-createAdmissionSocket()
+static int createAdmissionSocket()
 {
+    static const int ADMISSION_BACKLOG = 128;
+
     int admission = socket(AF_INET, SOCK_STREAM, 0);
     assert(admission != -1);
 
@@ -95,21 +94,21 @@ static int receiveMinGpa(int     socket,
     }
 
     char *conversionEnd = NULL;
-    double recvMinGpa = strtod(minGpaString, &conversionEnd);
+    *minGpa = strtod(minGpaString, &conversionEnd);
 
-    int conversionSucceeded = (minGpaString != conversionEnd);
+    int conversionSucceeded = (conversionEnd != minGpaString);
     free(minGpaString);
     return conversionSucceeded;
 }
 
-static int receiveDepartmentInfo(int       department,
-                                 char    **program,
-                                 double   *minGpa,
-                                 uint16_t *departmentId)
+static int receiveProgramInfo(int       department,
+                              char    **program,
+                              double   *minGpa,
+                              uint16_t *departmentId)
 {
     char *recvProgram         = NULL;
     uint16_t recvDepartmentId = 0;
-    int success = receiveShort(department,  &recvDepartmentId)
+    int success = receiveShort(department, &recvDepartmentId)
                && (recvDepartmentId >= 1)
                && (recvDepartmentId <= COUNT_DEPARTMENTS)
                && receiveString(department, &recvProgram)
@@ -125,30 +124,29 @@ static int receiveDepartmentInfo(int       department,
     return success;
 }
 
-static int acceptDepartment(int                 admission,
-                            struct sockaddr_in *departmentAddress)
+static int acceptDepartment(int admission)
 {
-    socklen_t addressLength = sizeof(*departmentAddress);
-    (void) memset(departmentAddress, 0, addressLength);
+    struct sockaddr_in departmentAddress;
+    socklen_t addressLength = sizeof(departmentAddress);
+    (void) memset(&departmentAddress, 0, addressLength);
     int department = accept(admission,
-                            (struct sockaddr *) departmentAddress,
+                            (struct sockaddr *) &departmentAddress,
                             &addressLength);
     assert(department != -1);
     return department;
 }
 
 static void handleDepartment(int                       department,
-                             const struct sockaddr_in *departmentAddress,
                              AdmissionDb              *aDb)
 {
     char     *program          = NULL;
     double    minGpa           = 0.0;
     uint16_t  departmentId     = 0;
     uint16_t  prevDepartmentId = 0;
-    while (receiveDepartmentInfo(department,
-                                 &program,
-                                 &minGpa,
-                                 &departmentId)) {
+    while (receiveProgramInfo(department,
+                              &program,
+                              &minGpa,
+                              &departmentId)) {
         if (prevDepartmentId != 0) {
             assert(departmentId == prevDepartmentId);
         }
@@ -167,6 +165,11 @@ static void handleDepartment(int                       department,
 
 }
 
+/**
+ * @brief build an AdmissionDb of program info received by the registered
+ *     departments
+ * @return the DB of program info, keyed by program name
+ */
 static AdmissionDb *admissionPhase1()
 {
     int admission = createAdmissionSocket();
@@ -177,16 +180,13 @@ static AdmissionDb *admissionPhase1()
 
     size_t remDepartments = COUNT_DEPARTMENTS;
     for (; remDepartments > 0; --remDepartments) {
-        struct sockaddr_in departmentAddress;
-        int department = acceptDepartment(admission,
-                                          &departmentAddress);
+        int department = acceptDepartment(admission);
+
         handleDepartment(department,
-                         &departmentAddress,
                          aDb);
 
         assert(close(department) == 0);
     }
-
 
     aDbFinalize(aDb);
 
@@ -203,6 +203,8 @@ static AdmissionDb *admissionPhase1()
 int main()
 {
     AdmissionDb *aDb = admissionPhase1();
+
+    /* TODO: admissionPhase2() */
 
     aDbDestroy(aDb);
     return EXIT_SUCCESS;

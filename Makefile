@@ -5,8 +5,18 @@ TARFLAGS = cvf
 PACKAGE_BASE = ee450_paape_phase
 
 PACKAGE1_CONTENTS = Admission.c \
-                    Admission.h \
                     Department.c \
+                    AdmissionDb.c \
+                    AdmissionDb.h \
+                    AdmissionDbTest.c \
+                    DepartmentRegistrar.c \
+                    DepartmentRegistrar.h \
+                    AdmissionClient.c \
+                    AdmissionClient.h \
+                    AdmissionCommon.c \
+                    AdmissionCommon.h \
+		    IdDigits.h \
+		    Makefile \
                     readme.txt
 
 PACKAGE2_CONTENTS = $(PACKAGE1_CONTENTS) \
@@ -33,9 +43,9 @@ AdmissionDbTest: AdmissionDbTest.o AdmissionDb.o
 AdmissionDbTest.o: AdmissionDbTest.c AdmissionDb.h
 	$(CC) $(CFLAGS) $< -o $@
 
-Department: Department.o  AdmissionClient.o AdmissionDepartmentInterface.o AdmissionCommon.o
+Department: Department.o  AdmissionClient.o DepartmentRegistrar.o AdmissionCommon.o
 	$(CC) $(LDFLAGS) $^ -o $@
-Department.o: Department.c AdmissionClient.h AdmissionDepartmentInterface.h AdmissionCommon.h
+Department.o: Department.c AdmissionClient.h DepartmentRegistrar.h AdmissionCommon.h
 	$(CC) $(CFLAGS) $< -o $@
 
 
@@ -43,18 +53,16 @@ Student.o: Student.c Student.h AdmissionClient.h
 	$(CC) $(CFLAGS) $< -o $@
 
 
-
-Admission: Admission.o AdmissionDb.o AdmissionDepartmentInterface.o AdmissionCommon.o
+Admission: Admission.o AdmissionDb.o DepartmentRegistrar.o AdmissionCommon.o
 	$(CC) $(LDFLAGS) $^ -o $@
-Admission.o: Admission.c AdmissionDb.h AdmissionDepartmentInterface.h AdmissionCommon.h
+Admission.o: Admission.c AdmissionDb.h DepartmentRegistrar.h AdmissionCommon.h
 	$(CC) $(CFLAGS) $< -o $@
-
 AdmissionDb.o: AdmissionDb.c AdmissionDb.h
 	$(CC) $(CFLAGS) $< -o $@
 
 AdmissionClient.o: AdmissionClient.c AdmissionClient.h AdmissionCommon.h
 	$(CC) $(CFLAGS) $< -o $@
-AdmissionDepartmentInterface.o: AdmissionDepartmentInterface.c AdmissionDepartmentInterface.h IdDigits.h
+DepartmentRegistrar.o: DepartmentRegistrar.c DepartmentRegistrar.h IdDigits.h
 	$(CC) $(CFLAGS) $< -o $@
 AdmissionCommon.o: AdmissionCommon.c AdmissionCommon.h IdDigits.h
 	$(CC) $(CFLAGS) $< -o $@

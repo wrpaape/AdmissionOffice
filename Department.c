@@ -8,9 +8,9 @@
 #include <string.h>     /* string utilities */
 #include <assert.h>     /* assert */
 
-#include "AdmissionCommon.h"              /* ADMISSION_PORT_NUMBER */
-#include "AdmissionDepartmentInterface.h" /* DEPARTMENTS */
-#include "AdmissionClient.h"              /* client utilties */
+#include "AdmissionCommon.h"     /* ADMISSION_PORT_NUMBER */
+#include "DepartmentRegistrar.h" /* DEPARTMENTS */
+#include "AdmissionClient.h"     /* client utilties */
 
 
 static FILE *openInputFile(char letter)

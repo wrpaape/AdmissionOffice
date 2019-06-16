@@ -98,12 +98,12 @@ int aDbFind(const AdmissionDb *aDb,
     const struct AdmissionNode *node = findNode(aDb->nodes,
                                                 aDb->nodes + aDb->count,
                                                 program);
-    if (node) {
+    int foundNode = (node != NULL);
+    if (foundNode) {
         *minGpa       = node->minGpa;
         *departmentId = node->departmentId;
-        return 1;
     }
-    return 0;
+    return foundNode;
 }
 
 void aDbDestroy(AdmissionDb *aDb)
