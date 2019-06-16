@@ -54,9 +54,9 @@ AdmissionDb.o: AdmissionDb.c AdmissionDb.h
 
 AdmissionClient.o: AdmissionClient.c AdmissionClient.h
 	$(CC) $(CFLAGS) $< -o $@
-AdmissionDepartmentInterface.o: AdmissionDepartmentInterface.c AdmissionDepartmentInterface.h
+AdmissionDepartmentInterface.o: AdmissionDepartmentInterface.c AdmissionDepartmentInterface.h IdDigits.h
 	$(CC) $(CFLAGS) $< -o $@
-AdmissionInterface.o: AdmissionInterface.c AdmissionInterface.h
+AdmissionInterface.o: AdmissionInterface.c AdmissionInterface.h IdDigits.h
 	$(CC) $(CFLAGS) $< -o $@
 
 

@@ -159,7 +159,8 @@ static AdmissionDb *admissionPhase1()
     AdmissionDb *aDb = aDbCreate();
     assert(aDb);
 
-    while (1) {
+    size_t remDepartments = COUNT_DEPARTMENTS;
+    for (; remDepartments > 0; --remDepartments) {
         struct sockaddr_in departmentAddress;
         int department = acceptDepartment(admission,
                                           &departmentAddress);

@@ -15,7 +15,7 @@
 
 static FILE *openInputFile(char letter)
 {
-    char inputPathname[] = "department_.txt";
+    char inputPathname[] = "department .txt";
     char *letterPtr      = &inputPathname[sizeof("department") - 1];
     *letterPtr = letter;
     FILE *input = fopen(inputPathname, "r");
