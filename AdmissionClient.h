@@ -4,7 +4,9 @@
 #include <stdio.h>  /* FILE */
 #include <stdint.h> /* uint16_t */
 
-extern const char *ADMISSION_IP_ADDRESS;
+
+int connectToAdmission(const char *client,
+                       const char *trailer);
 
 /**
  * @brief read a config line of the form <key><delimiter><value> from @p input

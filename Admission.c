@@ -3,10 +3,11 @@
 #include <unistd.h>     /* close */
 #include <arpa/inet.h>  /* htons */
 #include <stdlib.h>     /* strtod */
+#include <stdio.h>      /* I/O */
 #include <string.h>     /* memset */
 #include <assert.h>     /* assert */
 
-#include "AdmissionInterface.h"           /* ADMISSION_PORT_NUMBER */
+#include "AdmissionCommon.h"              /* ADMISSION_PORT_NUMBER */
 #include "AdmissionDepartmentInterface.h" /* DEPARTMENTS */
 #include "AdmissionDb.h"                  /* AdmissionDb */
 
@@ -71,10 +72,10 @@ static int receiveString(int    socket,
         return 0;
     }
 
-    if (!recv(socket,
-              recvString,
-              length,
-              0) != length) {
+    if (recv(socket,
+             recvString,
+             length,
+             0) != length) {
         free(recvString);
         return 0;
     }
@@ -106,11 +107,11 @@ static int receiveDepartmentInfo(int       department,
                                  double   *minGpa,
                                  uint16_t *departmentId)
 {
-    char *recvProgram                 = NULL;
-    uint16_t recvDepartmentId         = 0;
+    char *recvProgram         = NULL;
+    uint16_t recvDepartmentId = 0;
     int success = receiveShort(department,  &recvDepartmentId)
-               && (recvDepartmentId >= 0)
-               && (recvDepartmentId < COUNT_DEPARTMENTS)
+               && (recvDepartmentId >= 1)
+               && (recvDepartmentId <= COUNT_DEPARTMENTS)
                && receiveString(department, &recvProgram)
                && receiveMinGpa(department, minGpa);
 
@@ -140,21 +141,36 @@ static void handleDepartment(int                       department,
                              const struct sockaddr_in *departmentAddress,
                              AdmissionDb              *aDb)
 {
-    char     *program      = NULL;
-    double    minGpa       = 0.0;
-    uint16_t  departmentId = 0;
+    char     *program          = NULL;
+    double    minGpa           = 0.0;
+    uint16_t  departmentId     = 0;
+    uint16_t  prevDepartmentId = 0;
     while (receiveDepartmentInfo(department,
                                  &program,
                                  &minGpa,
                                  &departmentId)) {
+        if (prevDepartmentId != 0) {
+            assert(departmentId == prevDepartmentId);
+        }
         assert(aDbAdd(aDb, program, minGpa, departmentId));
         free(program);
+        prevDepartmentId = departmentId;
     }
+
+    assert(departmentId != 0);
+
+    char departmentLetter = DEPARTMENTS[departmentId - 1].letter;
+    assert(printf(
+        "Received the program list from Department%c\n",
+        departmentLetter
+    ) >= 0);
+
 }
 
 static AdmissionDb *admissionPhase1()
 {
     int admission = createAdmissionSocket();
+    announceConnection("The admission office", "", admission);
 
     AdmissionDb *aDb = aDbCreate();
     assert(aDb);
@@ -167,6 +183,7 @@ static AdmissionDb *admissionPhase1()
         handleDepartment(department,
                          &departmentAddress,
                          aDb);
+
         assert(close(department) == 0);
     }
 
@@ -174,6 +191,11 @@ static AdmissionDb *admissionPhase1()
     aDbFinalize(aDb);
 
     assert(close(admission) == 0);
+
+    assert(puts(
+        "End of Phase 1 for the admission office"
+    ) >= 0);
+
     return aDb;
 }
 

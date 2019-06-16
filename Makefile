@@ -33,9 +33,9 @@ AdmissionDbTest: AdmissionDbTest.o AdmissionDb.o
 AdmissionDbTest.o: AdmissionDbTest.c AdmissionDb.h
 	$(CC) $(CFLAGS) $< -o $@
 
-Department: Department.o  AdmissionClient.o AdmissionDepartmentInterface.o AdmissionInterface.o
+Department: Department.o  AdmissionClient.o AdmissionDepartmentInterface.o AdmissionCommon.o
 	$(CC) $(LDFLAGS) $^ -o $@
-Department.o: Department.c AdmissionClient.h AdmissionDepartmentInterface.h AdmissionInterface.h
+Department.o: Department.c AdmissionClient.h AdmissionDepartmentInterface.h AdmissionCommon.h
 	$(CC) $(CFLAGS) $< -o $@
 
 
@@ -44,19 +44,19 @@ Student.o: Student.c Student.h AdmissionClient.h
 
 
 
-Admission: Admission.o AdmissionDb.o AdmissionDepartmentInterface.o AdmissionInterface.o
+Admission: Admission.o AdmissionDb.o AdmissionDepartmentInterface.o AdmissionCommon.o
 	$(CC) $(LDFLAGS) $^ -o $@
-Admission.o: Admission.c AdmissionDb.h AdmissionDepartmentInterface.h AdmissionInterface.h
+Admission.o: Admission.c AdmissionDb.h AdmissionDepartmentInterface.h AdmissionCommon.h
 	$(CC) $(CFLAGS) $< -o $@
 
 AdmissionDb.o: AdmissionDb.c AdmissionDb.h
 	$(CC) $(CFLAGS) $< -o $@
 
-AdmissionClient.o: AdmissionClient.c AdmissionClient.h
+AdmissionClient.o: AdmissionClient.c AdmissionClient.h AdmissionCommon.h
 	$(CC) $(CFLAGS) $< -o $@
 AdmissionDepartmentInterface.o: AdmissionDepartmentInterface.c AdmissionDepartmentInterface.h IdDigits.h
 	$(CC) $(CFLAGS) $< -o $@
-AdmissionInterface.o: AdmissionInterface.c AdmissionInterface.h IdDigits.h
+AdmissionCommon.o: AdmissionCommon.c AdmissionCommon.h IdDigits.h
 	$(CC) $(CFLAGS) $< -o $@
 
 

@@ -8,7 +8,7 @@
 #include <string.h>     /* string utilities */
 #include <assert.h>     /* assert */
 
-#include "AdmissionInterface.h"           /* ADMISSION_PORT_NUMBER */
+#include "AdmissionCommon.h"              /* ADMISSION_PORT_NUMBER */
 #include "AdmissionDepartmentInterface.h" /* DEPARTMENTS */
 #include "AdmissionClient.h"              /* client utilties */
 
@@ -21,26 +21,6 @@ static FILE *openInputFile(char letter)
     FILE *input = fopen(inputPathname, "r");
     assert(input);
     return input;
-}
-
-static int connectToAdmission()
-{
-    int admission = socket(AF_INET, SOCK_STREAM, 0);
-    assert(admission != -1);
-
-	struct sockaddr_in admissionAddress;
-    (void) memset(&admissionAddress, 0, sizeof(admissionAddress));
-	admissionAddress.sin_family = AF_INET;
-	admissionAddress.sin_port   = htons(ADMISSION_PORT_NUMBER);
-	assert(inet_pton(AF_INET,
-                     ADMISSION_IP_ADDRESS,
-                     &admissionAddress.sin_addr) == 1);
-
-	assert(connect(admission,
-                   (const struct sockaddr *) &admissionAddress,
-                   sizeof(admissionAddress)) == 0);
-
-    return admission;
 }
 
 static size_t packDepartmentInfo(uint16_t     id,
@@ -85,15 +65,27 @@ static void sendDepartmentInfo(int         admission,
 
 static void departmentPhase1(uint16_t id)
 {
-    const struct Department *dep = &DEPARTMENTS[id];
+    const struct Department *dep = &DEPARTMENTS[id - 1];
 
-    FILE *input   = openInputFile(dep->letter);
-    int admission = connectToAdmission();
+    FILE *input = openInputFile(dep->letter);
+    char name[] = "Department_";
+    name[sizeof(name) - 2] = dep->letter;
+
+    int admission = connectToAdmission(name, " for Phase 1");
+    assert(printf(
+        "%s is now connected to the admission office\n",
+        name
+    ) >= 0);
 
     char *program = NULL;
     char *minGpa  = NULL;
     while (readConfig(input, '#', &program, &minGpa)) {
         sendDepartmentInfo(admission, id, program, minGpa);
+        assert(printf(
+            "%s has sent %s to the admission office\n",
+            name,
+            program
+        ) >= 0);
         free(program);
         free(minGpa);
     }
@@ -101,14 +93,19 @@ static void departmentPhase1(uint16_t id)
     assert(close(admission) == 0);
     assert(fclose(input) == 0);
 
+    assert(printf(
+        "Updating the admission office is done for %s\n",
+        name
+    ) >= 0);
+
     exit(EXIT_SUCCESS);
 }
 
 
 int main()
 {
-    uint16_t id = 0;
-    for (; id < COUNT_DEPARTMENTS; ++id) {
+    uint16_t id = 1;
+    for (; id <= COUNT_DEPARTMENTS; ++id) {
         pid_t forkStatus = fork();
         if (forkStatus == 0) {
             departmentPhase1(id);

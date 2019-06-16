@@ -3,9 +3,35 @@
 #include <stdlib.h>     /* free */
 #include <string.h>     /* string utilities */
 #include <arpa/inet.h>  /* htons */
+#include <assert.h>     /* assert */
+
+#include "AdmissionCommon.h"
 
 
 const char *ADMISSION_IP_ADDRESS = "127.0.0.1"; /* localhost */
+
+int connectToAdmission(const char *client,
+                       const char *trailer)
+{
+    int admission = socket(AF_INET, SOCK_STREAM, 0);
+    assert(admission != -1);
+
+	struct sockaddr_in admissionAddress;
+    (void) memset(&admissionAddress, 0, sizeof(admissionAddress));
+	admissionAddress.sin_family = AF_INET;
+	admissionAddress.sin_port   = htons(ADMISSION_PORT_NUMBER);
+	assert(inet_pton(AF_INET,
+                     ADMISSION_IP_ADDRESS,
+                     &admissionAddress.sin_addr) == 1);
+
+	assert(connect(admission,
+                   (const struct sockaddr *) &admissionAddress,
+                   sizeof(admissionAddress)) == 0);
+
+    announceConnection(client, trailer, admission);
+
+    return admission;
+}
 
 int readConfig(FILE  *input,
                char   delimiter,
