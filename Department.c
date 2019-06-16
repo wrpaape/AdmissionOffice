@@ -12,6 +12,7 @@
 #include "AdmissionDepartmentInterface.h" /* DEPARTMENTS */
 #include "AdmissionClient.h"              /* client utilties */
 
+
 static FILE *openInputFile(char letter)
 {
     char inputPathname[] = "department_.txt";
@@ -43,11 +44,11 @@ static int connectToAdmission()
 }
 
 static size_t packDepartmentInfo(uint16_t     id,
-                                 const char  *department,
+                                 const char  *program,
                                  const char  *minGpa,
                                  char       **buffer)
 {
-    uint16_t lengthDepartment = (uint16_t) strlen(department);
+    uint16_t lengthDepartment = (uint16_t) strlen(program);
     uint16_t lengthMinGpa     = (uint16_t) strlen(minGpa);
 
     size_t bufferSize = sizeof(id)
@@ -59,7 +60,7 @@ static size_t packDepartmentInfo(uint16_t     id,
     *buffer = bufferCursor;
 
     bufferCursor = packShort(bufferCursor, id);
-    bufferCursor = packString(bufferCursor, department, lengthDepartment);
+    bufferCursor = packString(bufferCursor, program, lengthDepartment);
     (void)         packString(bufferCursor, minGpa,     lengthMinGpa);
 
     return bufferSize;
@@ -67,12 +68,12 @@ static size_t packDepartmentInfo(uint16_t     id,
 
 static void sendDepartmentInfo(int         admission,
                                uint16_t    id,
-                               const char *department,
+                               const char *program,
                                const char *minGpa)
 {
     char *buffer = NULL;
     size_t bufferSize = packDepartmentInfo(id,
-                                           department,
+                                           program,
                                            minGpa,
                                            &buffer);
     assert(send(admission,
@@ -82,25 +83,25 @@ static void sendDepartmentInfo(int         admission,
     free(buffer);
 }
 
-static void phase1(uint16_t id)
+static void departmentPhase1(uint16_t id)
 {
     const struct Department *dep = &DEPARTMENTS[id];
 
     FILE *input   = openInputFile(dep->letter);
     int admission = connectToAdmission();
 
-    char *department = NULL;
-    char *minGpa     = NULL;
-    while (readConfig(input, '#', &department, &minGpa)) {
-        sendDepartmentInfo(admission, id, department, minGpa);
-        free(department);
+    char *program = NULL;
+    char *minGpa  = NULL;
+    while (readConfig(input, '#', &program, &minGpa)) {
+        sendDepartmentInfo(admission, id, program, minGpa);
+        free(program);
         free(minGpa);
     }
 
     assert(close(admission) == 0);
     assert(fclose(input) == 0);
 
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 
@@ -110,14 +111,14 @@ int main()
     for (; id < COUNT_DEPARTMENTS; ++id) {
         pid_t forkStatus = fork();
         if (forkStatus == 0) {
-            phase1(id);
+            departmentPhase1(id);
         }
         assert(forkStatus > 0);
     }
 
     /* wait for child processes */
-    int exitStatus = 0;
-    int childStatus = 0;
+    int exitStatus  = EXIT_SUCCESS;
+    int childStatus = EXIT_SUCCESS;
     while (wait(&childStatus) < 0) {
         exitStatus |= childStatus;
     }

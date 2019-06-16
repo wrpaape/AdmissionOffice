@@ -10,16 +10,14 @@ AdmissionDb *aDbCreate();
 int aDbAdd(AdmissionDb *aDb,
            const char  *program,
            double       minGpa,
-           const char  *department,
-           uint16_t     port);
+           uint16_t     departmentId);
 
 void aDbFinalize(AdmissionDb *aDb);
 
-int aDbFind(const AdmissionDb  *aDb,
-            const char         *program,
-            double             *minGpa,
-            const char        **department,
-            uint16_t           *port);
+int aDbFind(const AdmissionDb *aDb,
+            const char        *program,
+            double            *minGpa,
+            uint16_t          *departmentId);
 
 void aDbDestroy(AdmissionDb *aDb);
 

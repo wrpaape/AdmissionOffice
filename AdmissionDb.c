@@ -6,8 +6,7 @@
 struct AdmissionNode {
     char     *program;
     double    minGpa;
-    char     *department;
-    uint16_t  port;
+    uint16_t  departmentId;
 };
 
 struct AdmissionDb {
@@ -42,22 +41,18 @@ static int ensureCapacity(AdmissionDb *aDb)
 int aDbAdd(AdmissionDb *aDb,
            const char  *program,
            double       minGpa,
-           const char  *department,
-           uint16_t     port)
+           uint16_t     departmentId)
 {
-    char *programCopy    = strdup(program);
-    char *departmentCopy = strdup(department);
+    char *programCopy = strdup(program);
 
-    if (programCopy && departmentCopy && ensureCapacity(aDb)) {
+    if (programCopy && ensureCapacity(aDb)) {
         struct AdmissionNode *node = &aDb->nodes[aDb->count++];
-        node->program     = programCopy;
-        node->minGpa      = minGpa;
-        node->department  = departmentCopy;
-        node->port        = port;
+        node->program      = programCopy;
+        node->minGpa       = minGpa;
+        node->departmentId = departmentId;
         return 1;
     }
 
-    free(programCopy);
     free(programCopy);
     return 0;
 }
@@ -95,19 +90,17 @@ const struct AdmissionNode *findNode(const struct AdmissionNode *begin,
     return NULL;
 }
 
-int aDbFind(const AdmissionDb  *aDb,
-            const char         *program,
-            double             *minGpa,
-            const char        **department,
-            uint16_t           *port)
+int aDbFind(const AdmissionDb *aDb,
+            const char        *program,
+            double            *minGpa,
+            uint16_t          *departmentId)
 {
     const struct AdmissionNode *node = findNode(aDb->nodes,
                                                 aDb->nodes + aDb->count,
                                                 program);
     if (node) {
-        *minGpa     = node->minGpa;
-        *department = node->department;
-        *port       = node->port;
+        *minGpa       = node->minGpa;
+        *departmentId = node->departmentId;
         return 1;
     }
     return 0;
@@ -119,7 +112,6 @@ void aDbDestroy(AdmissionDb *aDb)
     struct AdmissionNode *nodesEnd = aDb->nodes + aDb->count;
     for (; node < nodesEnd; ++node) {
         free(node->program);
-        free(node->department);
     }
     free(aDb->nodes);
     free(aDb);

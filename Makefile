@@ -15,7 +15,7 @@ PACKAGE2_CONTENTS = $(PACKAGE1_CONTENTS) \
 
 .PHONY: all test package1 package2 clean clean-all
 
-all:  AdmissionDbTest Department
+all:  AdmissionDbTest Admission Department
 
 package1: $(PACKAGE1_CONTENTS)
 	tar $(TARFLAGS) $(PACKAGE_BASE)1.tar $^
@@ -35,7 +35,7 @@ AdmissionDbTest.o: AdmissionDbTest.c AdmissionDb.h
 
 Department: Department.o  AdmissionClient.o AdmissionDepartmentInterface.o AdmissionInterface.o
 	$(CC) $(LDFLAGS) $^ -o $@
-Department.o: Department.c
+Department.o: Department.c AdmissionClient.h AdmissionDepartmentInterface.h AdmissionInterface.h
 	$(CC) $(CFLAGS) $< -o $@
 
 
@@ -44,10 +44,11 @@ Student.o: Student.c Student.h AdmissionClient.h
 
 
 
-Admission: Admission.o AdmissionDb.o
+Admission: Admission.o AdmissionDb.o AdmissionDepartmentInterface.o AdmissionInterface.o
 	$(CC) $(LDFLAGS) $^ -o $@
-Admission.o: AdmissionDb.c AdmissionDb.h
+Admission.o: Admission.c AdmissionDb.h AdmissionDepartmentInterface.h AdmissionInterface.h
 	$(CC) $(CFLAGS) $< -o $@
+
 AdmissionDb.o: AdmissionDb.c AdmissionDb.h
 	$(CC) $(CFLAGS) $< -o $@
 
