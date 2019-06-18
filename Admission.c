@@ -84,17 +84,20 @@ static int receiveShort(int       socket,
 static int receiveString(int    socket,
                          char **string)
 {
+    /* recv() the length */
     uint16_t length = 0;
     if (!receiveShort(socket,
                       &length)) {
         return 0;
     }
 
+    /* allocate room for the string + '\0' */
     char *recvString = malloc(length + 1);
     if (!recvString) {
         return 0;
     }
 
+    /* recv() the actual string */
     if (recv(socket,
              recvString,
              length,
@@ -185,7 +188,7 @@ static int acceptDepartment(int admission)
  * @brief recv() all program info messages from a @p department and store it in
  *     the @p aDb
  * @param[in] department the socket connection to the department
- * @param[in] aDb        the
+ * @param[in] aDb        the accumulating database of program info
  */
 static void handleDepartment(int          department,
                              AdmissionDb *aDb)

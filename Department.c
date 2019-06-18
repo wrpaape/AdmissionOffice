@@ -65,22 +65,24 @@ static size_t packDepartmentInfo(uint16_t     id,
 }
 
 /**
- * @brief send the configured program info in a packet
- * @param[in] admission 
- * @param[in] id        
- * @param[in] program
- * @param[in] minGpa
+ * @brief send a packet the configured program info in a packet
+ * @param[in] admission the socket connection to the Admission office
+ * @param[in] id        the ID of @p program's department
+ * @param[in] program   the name of the program
+ * @param[in] minGpa    the minimum acceptable GPA for the program
  */
 static void sendDepartmentInfo(int         admission,
                                uint16_t    id,
                                const char *program,
                                const char *minGpa)
 {
+    /* pack the information up into a single buffer */
     char *buffer = NULL;
     size_t bufferSize = packDepartmentInfo(id,
                                            program,
                                            minGpa,
                                            &buffer);
+    /* send it */
     assert(send(admission,
                 buffer,
                 bufferSize,
@@ -90,25 +92,30 @@ static void sendDepartmentInfo(int         admission,
 
 /**
  * @brief The phase 1 routine for a Department instance.
- * @param The phase 1 routine for a Department instance.
+ * @param id the ID of a particular registered Department (see
+ *     DepartmentRegistrar.h)
  */
 static void departmentPhase1(uint16_t id)
 {
     const struct Department *dep = &DEPARTMENTS[id - 1];
 
+    /* open the config file */
     FILE *input = openInputFile(dep->letter);
     char name[] = "<Department#>";
     name[sizeof(name) - 3] = dep->letter; /* index of # */
 
+    /* connect to the Admission server */
     int admission = connectToAdmission(name, " for Phase 1");
     assert(printf(
         "%s is now connected to the admission office\n",
         name
     ) >= 0);
 
+    /* read each line of the config file */
     char *program = NULL;
     char *minGpa  = NULL;
     while (readConfig(input, '#', &program, &minGpa)) {
+        /* send each program info line to the Admission office */
         sendDepartmentInfo(admission, id, program, minGpa);
         assert(printf(
             "%s has sent <%s> to the admission office\n",
@@ -126,8 +133,6 @@ static void departmentPhase1(uint16_t id)
         "Updating the admission office is done for %s\n",
         name
     ) >= 0);
-
-    exit(EXIT_SUCCESS);
 }
 
 
@@ -137,7 +142,9 @@ int main()
     for (; id <= COUNT_DEPARTMENTS; ++id) {
         pid_t forkStatus = fork();
         if (forkStatus == 0) {
+            /* child process (Department instance) */
             departmentPhase1(id);
+            exit(EXIT_SUCCESS);
         }
         assert(forkStatus > 0);
     }
@@ -146,6 +153,7 @@ int main()
     int exitStatus  = EXIT_SUCCESS;
     int childStatus = EXIT_SUCCESS;
     while (wait(&childStatus) < 0) {
+        /* if any child processes fail (nonzero), exit with a nonzero status*/
         exitStatus |= childStatus;
     }
 
