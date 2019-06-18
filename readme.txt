@@ -1,10 +1,16 @@
 # EE450 Socket Programming Project (Phase 1)
 
+
 ## A. Name:       William Reid Paape
 ## B. Student ID: 2877379718
 ##    NetID:      paape
 
-## C. What
+
+## C. What I Have Done in the Assignment
+I have completed Phase 1 of the Admission Office Simulation Socket Programming
+Project of EE450. In this phase, multiple 'Department's send their program
+information to a central 'Admission' Office.
+
 
 ## D. Code Files
 
@@ -82,9 +88,33 @@ Updating the admission office is done for <DepartmentA>
 Updating the admission office is done for <DepartmentC>
 ```
 
+
+## F. Message Formats
+
+### Program Information
+
+#### Overview
+
+This packet is sent from `Department` clients to the `Admission` office to
+register their program information.  It contains a program name, the minimum
+acceptable GPA for the program, and the unique ID of the sender `Department`.
+A `Department` will send one of these packets for every line of their
+configuration file.
+
+#### Format
+| Field               | Type         | Byte Offset               | Description |
+|-------------------- | -------------|-------------------------- |------------ |
+| Department ID       | `uint16_t`   | 0                         | The unique ID of a registered Department in the Simulation belonging to the range [1,`COUNT_DEPARTMENTS`) |
+| Program Name Length | `uint16_t`   | 2                         | The string length of the Program Name (e.g. 2) |
+| Program Name        | `char` array | 4                         | The Program Name (e.g. "A1") |
+| Minimum GPA Length  | `uint16_t`   | 4 + [Program Name Length] | The string length of the Minimum GPA (e.g. 2) |
+| Minimum GPA         | `char` array | 6 + [Program Name Length] | The ASCII string representation of the floating-point minimum acceptable GPA for the program (e.g. "3.8") |
+
+
 ## G. Code Idiosyncrasies
 - any system call (memory allocation, I/O) failures result in a program abort()
 - ill-formed messages may crash the program
 - ill-formed messages are not NACKed
-- the `Admission` office relies on `Department`
+- the `Admission` office will wait indefinitely for `Department`s to send their program info before proceeding from phase 1
+- the `Admission` office uses POSIX threads to concurrently handle clients and not fork()
 - the program relies on the name of departments being distinguishable by a single letter

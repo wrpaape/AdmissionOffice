@@ -289,7 +289,8 @@ static AdmissionDb *admissionPhase1()
         handler->aDb        = aDb;
         handler->aDbLock    = &aDbLock;
 
-        /* handle the Department in a separate thread */
+        /* handle the Department in a separate thread
+         * s.t. clients can be handled concurrently */
         assert(pthread_create(&handler->thread,
                               NULL, /* no pthread attributes */
                               &runHandleDepartment,
