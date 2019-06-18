@@ -13,9 +13,15 @@
 #include "AdmissionClient.h"     /* client utilties */
 
 
+/**
+ * @brief open a Department's input file in the current directory named
+ *     "department<letter>.txt"
+ * @param[in] letter the department's letter
+ * @return the input file open for reading
+ */
 static FILE *openInputFile(char letter)
 {
-    char inputPathname[] = "department .txt";
+    char inputPathname[] = "department#.txt";
     char *letterPtr      = &inputPathname[sizeof("department") - 1];
     *letterPtr = letter;
     FILE *input = fopen(inputPathname, "r");
@@ -23,6 +29,16 @@ static FILE *openInputFile(char letter)
     return input;
 }
 
+/**
+ * @brief allocate a buffer, then copy the program info into the message format
+ *     to be delivered to the Admission server
+ * @param[in]  id      the ID used to uniquely identify a Department (see
+ *     DepartmentRegistrar.h)
+ * @param[in]  program the program name
+ * @param[in]  minGpa  the program's minimum acceptable GPA
+ * @param[out] buffer the program info message
+ * @return the byte size of the @p buffer
+ */
 static size_t packDepartmentInfo(uint16_t     id,
                                  const char  *program,
                                  const char  *minGpa,
@@ -31,6 +47,7 @@ static size_t packDepartmentInfo(uint16_t     id,
     uint16_t lengthDepartment = (uint16_t) strlen(program);
     uint16_t lengthMinGpa     = (uint16_t) strlen(minGpa);
 
+    /* allocate a buffer big enough */
     size_t bufferSize = sizeof(id)
                       + sizeof(lengthDepartment) + lengthDepartment
                       + sizeof(lengthMinGpa)     + lengthMinGpa;
@@ -39,13 +56,21 @@ static size_t packDepartmentInfo(uint16_t     id,
     assert(bufferCursor && "malloc() failure");
     *buffer = bufferCursor;
 
-    bufferCursor = packShort(bufferCursor, id);
-    bufferCursor = packString(bufferCursor, program, lengthDepartment);
-    (void)         packString(bufferCursor, minGpa,     lengthMinGpa);
+    /* pack the program info message */
+    bufferCursor = packShort(bufferCursor, id);                         /* department ID */
+    bufferCursor = packString(bufferCursor, program, lengthDepartment); /* program name */
+    (void)         packString(bufferCursor, minGpa,  lengthMinGpa);     /* minimum GPA  */
 
     return bufferSize;
 }
 
+/**
+ * @brief send the configured program info in a packet
+ * @param[in] admission 
+ * @param[in] id        
+ * @param[in] program
+ * @param[in] minGpa
+ */
 static void sendDepartmentInfo(int         admission,
                                uint16_t    id,
                                const char *program,
@@ -63,13 +88,17 @@ static void sendDepartmentInfo(int         admission,
     free(buffer);
 }
 
+/**
+ * @brief The phase 1 routine for a Department instance.
+ * @param The phase 1 routine for a Department instance.
+ */
 static void departmentPhase1(uint16_t id)
 {
     const struct Department *dep = &DEPARTMENTS[id - 1];
 
     FILE *input = openInputFile(dep->letter);
-    char name[] = "Department_";
-    name[sizeof(name) - 2] = dep->letter;
+    char name[] = "<Department#>";
+    name[sizeof(name) - 3] = dep->letter; /* index of # */
 
     int admission = connectToAdmission(name, " for Phase 1");
     assert(printf(
@@ -82,7 +111,7 @@ static void departmentPhase1(uint16_t id)
     while (readConfig(input, '#', &program, &minGpa)) {
         sendDepartmentInfo(admission, id, program, minGpa);
         assert(printf(
-            "%s has sent %s to the admission office\n",
+            "%s has sent <%s> to the admission office\n",
             name,
             program
         ) >= 0);

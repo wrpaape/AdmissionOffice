@@ -4,15 +4,15 @@
 #include <string.h> /* string utilities */
 
 struct AdmissionNode {
-    char     *program;
-    double    minGpa;
-    uint16_t  departmentId;
+    char     *program;      /* program name */
+    double    minGpa;       /* the minimum acceptable GPA for this program */
+    uint16_t  departmentId; /* ID of the program's department */
 };
 
 struct AdmissionDb {
-    size_t                count;
-    struct AdmissionNode *nodes;
-    size_t                capacity;
+    size_t                count;    /* current node count */
+    struct AdmissionNode *nodes;    /* buffer of nodes */
+    size_t                capacity; /* total buffer capacity */
 };
 
 AdmissionDb *aDbCreate()
@@ -20,6 +20,11 @@ AdmissionDb *aDbCreate()
     return calloc(sizeof(struct AdmissionDb), 1); /* all zeros */
 }
 
+/**
+ * @brief check that the nodes buffer has enough capacity for an additional
+ *     node
+ * @return non-zero on success, zero on an allocation failure
+ */
 static int ensureCapacity(AdmissionDb *aDb)
 {
     size_t nextCount = aDb->count + 1;
@@ -43,9 +48,12 @@ int aDbAdd(AdmissionDb *aDb,
            double       minGpa,
            uint16_t     departmentId)
 {
+    /* make a deep copy of program s.t. we don't depend on caller maintaining
+     * original */
     char *programCopy = strdup(program);
 
     if (programCopy && ensureCapacity(aDb)) {
+        /* insert new node at the end of nodes buffer */
         struct AdmissionNode *node = &aDb->nodes[aDb->count++];
         node->program      = programCopy;
         node->minGpa       = minGpa;
@@ -67,13 +75,16 @@ static int compareNodes(const void *lhs, const void *rhs)
 
 void aDbFinalize(AdmissionDb *aDb)
 {
+    /* sort the nodes buffer so that a binary search can be preformed for
+     * lookup */
     qsort(aDb->nodes, aDb->count, sizeof(*aDb->nodes), &compareNodes);
 }
 
-const struct AdmissionNode *findNode(const struct AdmissionNode *begin,
-                                     const struct AdmissionNode *end,
-                                     const char                 *program)
+static const struct AdmissionNode *findNode(const struct AdmissionNode *begin,
+                                            const struct AdmissionNode *end,
+                                            const char                 *program)
 {
+    /* binary search */
     while (begin < end) {
         size_t length                   = end - begin;
         const struct AdmissionNode *mid = begin + (length / 2);
@@ -108,11 +119,14 @@ int aDbFind(const AdmissionDb *aDb,
 
 void aDbDestroy(AdmissionDb *aDb)
 {
+    /* free all the copied program names */
     struct AdmissionNode *node     = aDb->nodes;
     struct AdmissionNode *nodesEnd = aDb->nodes + aDb->count;
     for (; node < nodesEnd; ++node) {
         free(node->program);
     }
+    /* free the nodes buffer */
     free(aDb->nodes);
+    /* free the AdmissionDb struct */
     free(aDb);
 }

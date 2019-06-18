@@ -15,6 +15,7 @@ void announceConnection(const char *name,
                         const char *trailer,
                         int         socket)
 {
+    /* get the port number and IP address */
 	struct sockaddr_in address;
     socklen_t addressLength = sizeof(address);
     (void) memset(&address, 0, addressLength);
@@ -23,8 +24,9 @@ void announceConnection(const char *name,
                        &addressLength) == 0);
     assert(addressLength == sizeof(address));
 
-    uint16_t port = ntohs(address.sin_port);
+    uint16_t port = ntohs(address.sin_port); /* network->host byte order */
 
+    /* translate the IP address to something printable */
     char ipAddress[INET_ADDRSTRLEN + 1] = "";
 	assert(inet_ntop(AF_INET,
                      &address.sin_addr,
