@@ -115,6 +115,12 @@ configuration file.
 - any system call (memory allocation, I/O) failures result in a program abort()
 - ill-formed messages may crash the program
 - ill-formed messages are not NACKed
+- The correctness of the Minimum GPA field is not validated at the time a Department reads in the configuration file
 - the `Admission` office will wait indefinitely for `Department`s to send their program info before proceeding from phase 1
 - the `Admission` office uses POSIX threads to concurrently handle clients and not fork()
 - the program relies on the name of departments being distinguishable by a single letter
+
+
+## H. Reused Code
+- `Admission.c`'s `createAdmissionSocket()` routine is nearly identical to the
+  TCP server socket setup routine from my Lab 2.  It is written by me.

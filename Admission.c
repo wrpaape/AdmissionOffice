@@ -12,11 +12,16 @@
 #include "DepartmentRegistrar.h" /* DEPARTMENTS */
 #include "AdmissionDb.h"         /* AdmissionDb */
 
+
+/**
+ * A collection of arguments and data structures needed to handle a Department
+ * connection in Phase 1.
+ */
 struct DepartmentHandler {
-    int              department;
-    AdmissionDb     *aDb;
-    pthread_mutex_t *aDbLock;
-    pthread_t        thread;
+    int              department; /** the department connection socket */
+    AdmissionDb     *aDb;        /** the accumulating DB of program info */
+    pthread_mutex_t *aDbLock;    /** the lock to synchronize access to aDb */
+    pthread_t        thread;     /** the thread handle */
 };
 
 /**
@@ -259,6 +264,7 @@ static void *runHandleDepartment(void *arg)
  */
 static AdmissionDb *admissionPhase1()
 {
+    /* create the server socket */
     int admission = createAdmissionSocket();
 
     /* announce TCP port and IP address */
@@ -284,6 +290,7 @@ static AdmissionDb *admissionPhase1()
         /* accept a connection to the next department */
         int department = acceptDepartment(admission);
 
+        /* set the handler arguments */
         struct DepartmentHandler *handler = &handlers[i];
         handler->department = department;
         handler->aDb        = aDb;
@@ -303,12 +310,13 @@ static AdmissionDb *admissionPhase1()
                             NULL /* discard retval */) == 0);
     }
 
-    /* free the handlers */
+    /* free the handlers once all Departments have been served */
     free(handlers);
 
     /* ready the DB for lookup */
     aDbFinalize(aDb);
 
+    /* close the server socket */
     assert(close(admission) == 0);
 
     atomicPrintf("End of Phase 1 for the admission office\n");
