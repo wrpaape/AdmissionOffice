@@ -5,12 +5,19 @@
 #include <stdlib.h>     /* strtod */
 #include <stdio.h>      /* I/O */
 #include <string.h>     /* memset */
+#include <pthread.h>    /* pthread */
 #include <assert.h>     /* assert */
 
 #include "AdmissionCommon.h"     /* ADMISSION_PORT_NUMBER */
 #include "DepartmentRegistrar.h" /* DEPARTMENTS */
 #include "AdmissionDb.h"         /* AdmissionDb */
 
+struct DepartmentHandler {
+    int              department;
+    AdmissionDb     *aDb;
+    pthread_mutex_t *aDbLock;
+    pthread_t        thread;
+};
 
 /**
  * @brief create a TCP "server" socket
@@ -186,12 +193,14 @@ static int acceptDepartment(int admission)
 
 /**
  * @brief recv() all program info messages from a @p department and store it in
- *     the @p aDb
+ *     the @p aDb, then close() the connection
  * @param[in] department the socket connection to the department
  * @param[in] aDb        the accumulating database of program info
+ * @param[in] aDbLock    the mutex protecting writes to @p aDb
  */
-static void handleDepartment(int          department,
-                             AdmissionDb *aDb)
+static void handleDepartment(int              department,
+                             AdmissionDb     *aDb,
+                             pthread_mutex_t *aDbLock)
 {
     char     *program          = NULL;
     double    minGpa           = 0.0;
@@ -205,20 +214,43 @@ static void handleDepartment(int          department,
             /* check that each department message starts with the same ID */
             assert(departmentId == prevDepartmentId);
         }
-        assert(aDbAdd(aDb, program, minGpa, departmentId));
+
+        /* insert the program info into the DB */
+        assert(pthread_mutex_lock(aDbLock) == 0);
+        int successfulAdd = aDbAdd(aDb, program, minGpa, departmentId);
+        assert(pthread_mutex_unlock(aDbLock) == 0);
+
+        /* ensure the insertion succeeded after lock relinquished */
+        assert(successfulAdd);
+
         free(program);
         prevDepartmentId = departmentId;
     }
 
+    /* close() the connection */
+    assert(close(department) == 0);
+
     /* check that at least 1 program info message was sent */
     if (departmentId != 0) {
         char departmentLetter = DEPARTMENTS[departmentId - 1].letter;
-        assert(printf(
-            "Received the program list from <Department%c>\n",
-            departmentLetter
-        ) >= 0);
+        atomicPrintf("Received the program list from <Department%c>\n",
+                     departmentLetter);
     }
 }
+
+static void *runHandleDepartment(void *arg)
+{
+    const struct DepartmentHandler *handler
+        = (const struct DepartmentHandler *) arg;
+
+    /* recv() their program info and store it in the DB */
+    handleDepartment(handler->department,
+                     handler->aDb,
+                     handler->aDbLock);
+    
+    return NULL;
+}
+
 
 /**
  * @brief builds an AdmissionDb of program info received by the registered
@@ -232,31 +264,53 @@ static AdmissionDb *admissionPhase1()
     /* announce TCP port and IP address */
     announceConnection("The admission office", "", admission);
 
+    /* create an empty DB */
     AdmissionDb *aDb = aDbCreate();
     assert(aDb);
 
+    /* create a lock for the DB */
+    pthread_mutex_t aDbLock = PTHREAD_MUTEX_INITIALIZER;
+
+    /* allocate a thread and memory to hold arguments for all COUNT_DEPARTMENTS
+     * expected Department clients */
+    struct DepartmentHandler *handlers = malloc(
+        COUNT_DEPARTMENTS * sizeof(struct DepartmentHandler)
+    );
+    assert(handlers);
+
     /* for the expected number of registered departments... */
-    size_t remDepartments = COUNT_DEPARTMENTS;
-    for (; remDepartments > 0; --remDepartments) {
+    size_t i = 0;
+    for (; i < COUNT_DEPARTMENTS; ++i) {
         /* accept a connection to the next department */
         int department = acceptDepartment(admission);
 
-        /* recv() their program info and store it in the DB */
-        handleDepartment(department,
-                         aDb);
+        struct DepartmentHandler *handler = &handlers[i];
+        handler->department = department;
+        handler->aDb        = aDb;
+        handler->aDbLock    = &aDbLock;
 
-        /* close() the connection */
-        assert(close(department) == 0);
+        /* handle the Department in a separate thread */
+        assert(pthread_create(&handler->thread,
+                              NULL, /* no pthread attributes */
+                              &runHandleDepartment,
+                              handler) == 0);
     }
+
+    /* join the threads */
+    for (i = 0; i < COUNT_DEPARTMENTS; ++i) {
+        assert(pthread_join(handlers[i].thread,
+                            NULL /* discard retval */) == 0);
+    }
+
+    /* free the handlers */
+    free(handlers);
 
     /* ready the DB for lookup */
     aDbFinalize(aDb);
 
     assert(close(admission) == 0);
 
-    assert(puts(
-        "End of Phase 1 for the admission office"
-    ) >= 0);
+    atomicPrintf("End of Phase 1 for the admission office\n");
 
     return aDb;
 }
@@ -277,5 +331,6 @@ int main()
     admissionPhase2(aDb);
 
     aDbDestroy(aDb);
+
     return EXIT_SUCCESS;
 }

@@ -1,6 +1,6 @@
 CC = gcc
-CFLAGS = -O0 -g -c
-LDFLAGS = -lnsl -lresolv
+CFLAGS = -Wall -O0 -g -c -pthread
+LDFLAGS = -lnsl -lresolv -pthread
 TARFLAGS = cvf
 PACKAGE_BASE = ee450_paape_phase
 

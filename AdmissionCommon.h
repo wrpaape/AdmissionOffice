@@ -9,6 +9,13 @@
 extern const uint16_t ADMISSION_PORT_NUMBER;
 
 /**
+ * @brief atomically print and flush the supplied arguments to stdout
+ * @param[in] format the format string
+ * @param[in] ... the arguments to be formatted
+ */
+void atomicPrintf(const char *format, ...);
+
+/**
  * @brief print a message to stdout of the form:
  *     <name> has TCP port <port> and IP address <ip><trailer>
  *     where 'port' and 'ip' are the @p socket's TCP port and IPv4 address

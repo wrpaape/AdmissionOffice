@@ -106,10 +106,10 @@ static void departmentPhase1(uint16_t id)
 
     /* connect to the Admission server */
     int admission = connectToAdmission(name, " for Phase 1");
-    assert(printf(
+    atomicPrintf(
         "%s is now connected to the admission office\n",
         name
-    ) >= 0);
+    );
 
     /* read each line of the config file */
     char *program = NULL;
@@ -117,11 +117,11 @@ static void departmentPhase1(uint16_t id)
     while (readConfig(input, '#', &program, &minGpa)) {
         /* send each program info line to the Admission office */
         sendDepartmentInfo(admission, id, program, minGpa);
-        assert(printf(
+        atomicPrintf(
             "%s has sent <%s> to the admission office\n",
             name,
             program
-        ) >= 0);
+        );
         free(program);
         free(minGpa);
     }
@@ -129,10 +129,10 @@ static void departmentPhase1(uint16_t id)
     assert(close(admission) == 0);
     assert(fclose(input) == 0);
 
-    assert(printf(
+    atomicPrintf(
         "Updating the admission office is done for %s\n",
         name
-    ) >= 0);
+    );
 }
 
 
