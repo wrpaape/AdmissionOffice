@@ -1,7 +1,7 @@
 #include <sys/types.h>  /* socket */
 #include <sys/socket.h> /* socket */
 #include <unistd.h>     /* close */
-#include <arpa/inet.h>  /* htons */
+#include <arpa/inet.h>  /* htons, htonl */
 #include <stdlib.h>     /* strtod */
 #include <stdio.h>      /* I/O */
 #include <string.h>     /* memset */
@@ -25,6 +25,8 @@ struct DepartmentHandler {
 };
 
 /**
+ * NOTE: this code is mostly reused from my Lab 2 assignment's server socket
+ * setup routine create_server_socket()
  * @brief create a TCP "server" socket
  * @return the Admission server socket
  */

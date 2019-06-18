@@ -123,4 +123,5 @@ configuration file.
 
 ## H. Reused Code
 - `Admission.c`'s `createAdmissionSocket()` routine is nearly identical to the
-  TCP server socket setup routine from my Lab 2.  It is written by me.
+  TCP server socket setup routine create_server_socket() from my Lab 2
+  assignment.  Both were written by me.
