@@ -76,68 +76,6 @@ static int createAdmissionSocket()
 }
 
 /**
- * @brief recv() a 16-bit short off of a @p sockFd
- * @param[in]  sockFd  the socket
- * @param[out] integer the result
- * @return non-zero if successful
- */
-static int receiveShort(int       sockFd,
-                        uint16_t *integer)
-{
-    uint16_t recvInteger = 0;
-    if (recv(sockFd,
-             &recvInteger,
-             sizeof(recvInteger),
-             0) != sizeof(recvInteger)) {
-        return 0;
-    }
-
-    *integer = ntohs(recvInteger);
-    return 1;
-}
-
-/**
- * @brief recv() a string off of a @p sockFd packed accordingly:
- *     <length:uint16_t>
- *     <byte_1>
- *     <byte_2>
- *     ... 
- *     <byte_length>
- * @param[in]  sockFd the socket
- * @param[out] string the result
- * @return non-zero if successful
- */
-static int receiveString(int    sockFd,
-                         char **string)
-{
-    /* recv() the length */
-    uint16_t length = 0;
-    if (!receiveShort(sockFd,
-                      &length)) {
-        return 0;
-    }
-
-    /* allocate room for the string + '\0' */
-    char *recvString = malloc(length + 1);
-    if (!recvString) {
-        return 0;
-    }
-
-    /* recv() the actual string */
-    if (recv(sockFd,
-             recvString,
-             length,
-             0) != length) {
-        free(recvString);
-        return 0;
-    }
-
-    recvString[length] = '\0'; /* terminate string */
-    *string = recvString;
-    return 1;
-}
-
-/**
  * @brief recv() a floating point value from the @p sockFd
  * @param[in]  sockFd the socket
  * @param[out] value the result
@@ -161,18 +99,6 @@ static int receiveDouble(int     sockFd,
     int conversionSucceeded = (conversionEnd != valueString);
     free(valueString);
     return conversionSucceeded;
-}
-
-/**
- * @brief get the IPv4 address for this client
- * @param[in] client the client socket
- * @return the IPv4 address of the client in network byte order
- */
-static uint32_t getIp(int client)
-{
-    struct sockaddr_in address;
-    getAddress(client, &address);
-    return address.sin_addr.s_addr;
 }
 
 /**
@@ -530,7 +456,7 @@ static void sendStudentRejected(int      phase2Socket,
 
 static void sendDepartmentAdmission(int                      phase2Socket,
                                     uint32_t                 departmentIp,
-                                    const struct Department *department,
+                                    const struct Department *dep,
                                     uint16_t                 studentId,
                                     double                   studentGpa,
                                     const char              *admittedProgram)
@@ -561,13 +487,12 @@ static void sendDepartmentAdmission(int                      phase2Socket,
 
     /* build the department name */
     char departmentName[] = "<Department#>";
-    departmentName[sizeof(departmentName) - 3]
-        = department->letter; /* index of '#' */
+    departmentName[sizeof(departmentName) - 3] = dep->letter; /* index of '#' */
 
     /* send the message */
     sendPhase2Message(phase2Socket,
                       departmentIp,
-                      department->port,
+                      dep->port,
                       message,
                       "one admitted student",
                       departmentName);

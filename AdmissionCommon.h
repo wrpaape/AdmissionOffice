@@ -33,6 +33,13 @@ void getAddress(int                 sockFd,
                 struct sockaddr_in *address);
 
 /**
+ * @brief get the IPv4 address for this @p sockFd
+ * @param[in] sockFd the socket
+ * @return the IPv4 address associated with the socket in network byte order
+ */
+uint32_t getIp(int sockFd);
+
+/**
  * @brief print a message to stdout of the form:
  *     <name> has TCP port <port> and IP address <ip><trailer>
  *     where 'port' and 'ip' are the @p socket's TCP port and IPv4 address
@@ -65,5 +72,28 @@ char *packShort(char     *buffer,
 char *packString(char       *buffer,
                  const char *string,
                  uint16_t    length);
+
+/**
+ * @brief recv() a 16-bit short off of a @p sockFd
+ * @param[in]  sockFd  the socket
+ * @param[out] integer the result
+ * @return non-zero if successful
+ */
+int receiveShort(int       sockFd,
+                 uint16_t *integer);
+
+/**
+ * @brief recv() a string off of a @p sockFd packed accordingly:
+ *     <length:uint16_t>
+ *     <byte_1>
+ *     <byte_2>
+ *     ... 
+ *     <byte_length>
+ * @param[in]  sockFd the socket
+ * @param[out] string the result
+ * @return non-zero if successful
+ */
+int receiveString(int    sockFd,
+                  char **string);
 
 #endif /* ifndef ADMISSION_COMMON_H */

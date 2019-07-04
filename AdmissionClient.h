@@ -21,7 +21,8 @@ int connectToAdmission(const char *client,
 /**
  * TODO
  */
-int openUdpSocket(uint16_t port);
+int openAdmissionListener(uint16_t    port,
+                          const char *client);
 
 /**
  * @brief read a config line of the form <key><delimiter><value> from @p input

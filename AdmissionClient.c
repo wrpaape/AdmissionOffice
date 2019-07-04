@@ -40,6 +40,27 @@ int connectToAdmission(const char *client,
     return admission;
 }
 
+int openAdmissionListener(uint16_t    port,
+                          const char *client)
+{
+    /* create a socket for receiving messages from the admissions office */
+    int listener = createSocket(SOCK_DGRAM);
+
+    /* bind() the socket */
+	struct sockaddr_in address;
+    (void) memset(&address, 0, sizeof(address));
+	address.sin_family      = AF_INET;
+	address.sin_addr.s_addr = getIp(listener);
+	address.sin_port        = htons(port);
+    assert(bind(listener,
+                (const struct sockaddr *) &address,
+                sizeof(address)) == 0);
+
+    announceSocket(client, "for Phase 2", listener);
+
+    return listener;
+}
+
 int readConfig(FILE  *input,
                char   delimiter,
                char **key,

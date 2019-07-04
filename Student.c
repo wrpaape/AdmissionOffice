@@ -164,10 +164,16 @@ static uint16_t apply(uint16_t    id,
     return countValidPrograms;
 }
 
-static char *receiveApplicationResult(uint16_t id)
+static char *receiveApplicationResult(uint16_t    port,
+                                      const char *name)
 {
-    /* uint16_t port = STUDENT_PORTS[id - 1]; */
-    return NULL;
+    int listener = openAdmissionListener(port, name);
+
+    char *result = NULL;
+    assert(receiveString(listener,
+                         &result) && "no application result");
+
+    return result;
 }
 
 static void student(uint16_t id)
@@ -180,7 +186,8 @@ static void student(uint16_t id)
     uint16_t countValidPrograms = apply(id, name);
 
     if (countValidPrograms > 0) {
-        char *result = receiveApplicationResult(id);
+        uint16_t port = STUDENT_PORTS[id - 1];
+        char *result  = receiveApplicationResult(port, name);
         atomicPrintf("%s has received the application result: %s\n",
                      name, result);
         free(result);

@@ -89,18 +89,18 @@ static void sendDepartmentInfo(int         admission,
 }
 
 /**
- * @brief The phase 1 routine for a Department instance.
- * @param id the ID of a particular registered Department (see
+ * @brief the phase 1 routine for a Department instance
+ * @param[in] dep  this registered Department's information
+ * @param[in] id   the ID of a particular registered Department (see
  *     DepartmentRegistrar.h)
+ * @param[in] name the name of this Department instance
  */
-static void departmentPhase1(uint16_t id)
+static void departmentPhase1(const struct Department *dep,
+                             uint16_t                 id,
+                             const char              *name)
 {
-    const struct Department *dep = &DEPARTMENTS[id - 1];
-
     /* open the config file */
     FILE *input = openInputFile(dep->letter);
-    char name[] = "<Department#>";
-    name[sizeof(name) - 3] = dep->letter; /* index of # */
 
     /* connect to the Admission server */
     int admission = connectToAdmission(name, " for Phase 1");
@@ -130,6 +130,56 @@ static void departmentPhase1(uint16_t id)
     );
 }
 
+static const char *getStudentName(char *admissionMessage)
+{
+    /* student name is listed first */
+    const char *studentName = admissionMessage;
+    
+    /* chop message of at first '#' delimiter */
+    char *endOfStudent = strchr(admissionMessage, '#');
+    assert(endOfStudent && "ill-formed admission message");
+    *endOfStudent = '\0'; /* terminate student name */
+
+    return studentName;
+}
+
+
+
+/**
+ * @brief the phase 2 routine for a Department instance
+ * @param[in] dep  this registered Department's information
+ * @param[in] name the name of this Department instance
+ */
+static void departmentPhase2(const struct Department *dep,
+                             const char              *name)
+{
+    int listener = openAdmissionListener(dep->port, name);
+    char *admissionMessage = NULL;
+    while (receiveString(listener, &admissionMessage)) {
+        const char *studentName = getStudentName(admissionMessage);
+
+        atomicPrintf("<%s> has been admitted to %s\n", studentName, name);
+
+        free(admissionMessage);
+    }
+
+    /* close() the UDP connection */
+    assert(close(listener) == 0);
+}
+
+/**
+ * @brief The routine for a Department instance.
+ * @param[in] id the ID of a particular registered Department (see
+ *     DepartmentRegistrar.h)
+ */
+static void department(uint16_t id)
+{
+    const struct Department *dep = &DEPARTMENTS[id - 1];
+    char name[] = "<Department#>";
+    name[sizeof(name) - 3] = dep->letter; /* index of # */
+    departmentPhase1(dep, id, name);
+    departmentPhase2(dep, name);
+}
 
 int main()
 {
@@ -138,7 +188,7 @@ int main()
         pid_t forkStatus = fork();
         if (forkStatus == 0) {
             /* child process (Department instance) */
-            departmentPhase1(id);
+            department(id);
             exit(EXIT_SUCCESS);
         }
         assert(forkStatus > 0);
