@@ -348,6 +348,7 @@ static size_t makePhase2Packet(const char  *message,
     uint16_t lengthMessage = (uint16_t) strlen(message);
     size_t   sizePacket    = sizeof(lengthMessage)
                            + lengthMessage;
+
     char *buffer = malloc(sizePacket);
     assert(buffer && "malloc() failure");
     (void) packString(buffer, message, lengthMessage);
@@ -435,7 +436,7 @@ static void sendStudentAccepted(int         phase2Socket,
                     sizeResult,
                     ACCEPTED_FORMAT,
                     admittedProgram,
-                    departmentLetter) == sizeResult);
+                    departmentLetter) == lengthResult);
 
     /* send the message */
     sendStudentResult(phase2Socket,
@@ -467,7 +468,7 @@ static void sendDepartmentAdmission(int                      phase2Socket,
     int lengthResult = snprintf(NULL,
                                 0,
                                 ADMITTED_FORMAT,
-                                studentId,
+                                (unsigned int) studentId,
                                 studentGpa,
                                 admittedProgram);
     assert((lengthResult >= 0) && "snprintf() failure");
@@ -483,7 +484,7 @@ static void sendDepartmentAdmission(int                      phase2Socket,
                     ADMITTED_FORMAT,
                     (unsigned int) studentId,
                     studentGpa,
-                    admittedProgram) == sizeResult);
+                    admittedProgram) == lengthResult);
 
     /* build the department name */
     char departmentName[] = "<Department#>";
@@ -540,7 +541,7 @@ static void handleStudent(int                student,
 
     /* create a socket for sending results to student and possibly department */
     int phase2Socket = createSocket(SOCK_DGRAM);
-    announceSocket("The admission office", "for Phase 2", phase2Socket);
+    announceSocket("The admission office", " for Phase 2", phase2Socket);
 
     if (admittedProgram) {
         /* retrieve the department information */

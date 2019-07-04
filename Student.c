@@ -84,7 +84,7 @@ static size_t packApplicationPacket(uint16_t     id,
 
     /* allocate a buffer big enough */
     size_t bufferSize = sizeof(id)
-                      + sizeof(lengthPayload) + lengthPayload
+                      + sizeof(lengthPayload)
                       + lengthPayload;
 
     char *bufferCursor = malloc(bufferSize);
@@ -210,11 +210,11 @@ int main()
 
     /* wait for child processes */
     int exitStatus  = EXIT_SUCCESS;
-    int childStatus = EXIT_SUCCESS;
-    while (wait(&childStatus) < 0) {
+    /* int childStatus = EXIT_SUCCESS;*/
+    /* while (wait(&childStatus) < 0) {*/
         /* if any child processes fail (nonzero), exit with a nonzero status*/
-        exitStatus |= childStatus;
-    }
+    /*     exitStatus |= childStatus;*/
+    /* }*/
 
     return exitStatus;
 }
