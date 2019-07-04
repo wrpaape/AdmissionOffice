@@ -1,22 +1,20 @@
 #include <sys/types.h>  /* fork */
-#include <sys/socket.h> /* socket */
-#include <sys/wait.h>   /* wait */
-#include <arpa/inet.h>  /* htons */
+#include <sys/socket.h> /* send */
 #include <unistd.h>     /* fork */
-#include <stdio.h>      /* I/O */
+#include <sys/wait.h>   /* wait */
 #include <stdlib.h>     /* malloc/free */
 #include <string.h>     /* string utilities */
 #include <assert.h>     /* assert */
 
 #include "AdmissionCommon.h"     /* ADMISSION_PORT_NUMBER */
-#include "DepartmentRegistrar.h" /* DEPARTMENTS */
 #include "AdmissionClient.h"     /* client utilties */
+#include "DepartmentRegistrar.h" /* DEPARTMENTS */
 
 
 /**
  * @brief open a Department's input file in the current directory named
  *     "department<letter>.txt"
- * @param[in] letter the department's letter
+ * @param[in] letter the Department's letter
  * @return the input file open for reading
  */
 static FILE *openInputFile(char letter)
@@ -25,7 +23,7 @@ static FILE *openInputFile(char letter)
     char *letterPtr      = &inputPathname[sizeof("department") - 1];
     *letterPtr = letter;
     FILE *input = fopen(inputPathname, "r");
-    assert(input);
+    assert(input && "fopen() failure");
     return input;
 }
 
@@ -106,10 +104,7 @@ static void departmentPhase1(uint16_t id)
 
     /* connect to the Admission server */
     int admission = connectToAdmission(name, " for Phase 1");
-    atomicPrintf(
-        "%s is now connected to the admission office\n",
-        name
-    );
+    atomicPrintf("%s is now connected to the admission office\n", name);
 
     /* read each line of the config file */
     char *program = NULL;

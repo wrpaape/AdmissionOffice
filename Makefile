@@ -21,11 +21,12 @@ PACKAGE1_CONTENTS = Admission.c \
 
 PACKAGE2_CONTENTS = $(PACKAGE1_CONTENTS) \
                     Student.c \
-                    Student.h
+                    StudentRegistrar.c \
+                    StudentRegistrar.h
 
 .PHONY: all test package1 package2 clean clean-all
 
-all:  AdmissionDbTest Admission Department
+all:  AdmissionDbTest Admission Department Student
 
 package1: $(PACKAGE1_CONTENTS)
 	tar $(TARFLAGS) $(PACKAGE_BASE)1.tar $^
@@ -43,33 +44,38 @@ AdmissionDbTest: AdmissionDbTest.o AdmissionDb.o
 AdmissionDbTest.o: AdmissionDbTest.c AdmissionDb.h
 	$(CC) $(CFLAGS) $< -o $@
 
-Department: Department.o  AdmissionClient.o DepartmentRegistrar.o AdmissionCommon.o
+Department: Department.o DepartmentRegistrar.o AdmissionClient.o AdmissionCommon.o
 	$(CC) $(LDFLAGS) $^ -o $@
-Department.o: Department.c AdmissionClient.h DepartmentRegistrar.h AdmissionCommon.h
+Department.o: Department.c DepartmentRegistrar.h AdmissionClient.h AdmissionCommon.h
 	$(CC) $(CFLAGS) $< -o $@
 
-
-Student.o: Student.c Student.h AdmissionClient.h
+Student: Student.o StudentRegistrar.o AdmissionClient.o AdmissionCommon.o
+	$(CC) $(LDFLAGS) $^ -o $@
+Student.o: Student.c StudentRegistrar.h AdmissionClient.h AdmissionCommon.h
 	$(CC) $(CFLAGS) $< -o $@
 
-
-Admission: Admission.o AdmissionDb.o DepartmentRegistrar.o AdmissionCommon.o
+Admission: Admission.o AdmissionDb.o DepartmentRegistrar.o StudentRegistrar.o AdmissionCommon.o
 	$(CC) $(LDFLAGS) $^ -o $@
-Admission.o: Admission.c AdmissionDb.h DepartmentRegistrar.h AdmissionCommon.h
+Admission.o: Admission.c AdmissionDb.h DepartmentRegistrar.h StudentRegistrar.h AdmissionCommon.h
 	$(CC) $(CFLAGS) $< -o $@
 AdmissionDb.o: AdmissionDb.c AdmissionDb.h
 	$(CC) $(CFLAGS) $< -o $@
 
-AdmissionClient.o: AdmissionClient.c AdmissionClient.h AdmissionCommon.h
-	$(CC) $(CFLAGS) $< -o $@
+
 DepartmentRegistrar.o: DepartmentRegistrar.c DepartmentRegistrar.h IdDigits.h
 	$(CC) $(CFLAGS) $< -o $@
+
+StudentRegistrar.o: StudentRegistrar.c StudentRegistrar.h IdDigits.h
+	$(CC) $(CFLAGS) $< -o $@
+
+AdmissionClient.o: AdmissionClient.c AdmissionClient.h AdmissionCommon.h
+	$(CC) $(CFLAGS) $< -o $@
+
 AdmissionCommon.o: AdmissionCommon.c AdmissionCommon.h IdDigits.h
 	$(CC) $(CFLAGS) $< -o $@
 
-
 clean:
-	$(RM) *.o Department Admission AdmissionDbTest
+	$(RM) *.o Student Department Admission AdmissionDbTest
 
 clean-all: clean
 	$(RM) $(PACKAGE_BASE)1.tar.gz $(PACKAGE_BASE)2.tar.gz

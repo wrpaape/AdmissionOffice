@@ -11,6 +11,7 @@
 #include "AdmissionCommon.h"     /* ADMISSION_PORT_NUMBER */
 #include "DepartmentRegistrar.h" /* DEPARTMENTS */
 #include "AdmissionDb.h"         /* AdmissionDb */
+#include "StudentRegistrar.h"    /* COUNT_STUDENTS */
 
 
 /**
@@ -22,6 +23,16 @@ struct DepartmentHandler {
     AdmissionDb     *aDb;        /** the accumulating DB of program info */
     pthread_mutex_t *aDbLock;    /** the lock to synchronize access to aDb */
     pthread_t        thread;     /** the thread handle */
+};
+
+/**
+ * A collection of arguments and data structures needed to handle a Student
+ * connection in Phase 2.
+ */
+struct StudentHandler {
+    int                student; /** the student connection socket */
+    const AdmissionDb *aDb;     /** the read-only DB of program info */
+    pthread_t          thread;  /** the thread handle */
 };
 
 /**
@@ -182,20 +193,20 @@ static int receiveProgramInfo(int       department,
 }
 
 /**
- * @brief accept() a TCP connection from a department
+ * @brief accept() a TCP connection from a client
  * @param[in] admission the listen()ing admission office socket
- * @return the socket connection with the department
+ * @return the socket connection with the client
  */
-static int acceptDepartment(int admission)
+static int acceptClient(int admission)
 {
     struct sockaddr_in departmentAddress;
     socklen_t addressLength = sizeof(departmentAddress);
     (void) memset(&departmentAddress, 0, addressLength);
-    int department = accept(admission,
-                            (struct sockaddr *) &departmentAddress,
-                            &addressLength);
-    assert(department != -1);
-    return department;
+    int client = accept(admission,
+                        (struct sockaddr *) &departmentAddress,
+                        &addressLength);
+    assert(client != -1);
+    return client;
 }
 
 /**
@@ -258,20 +269,13 @@ static void *runHandleDepartment(void *arg)
     return NULL;
 }
 
-
 /**
  * @brief builds an AdmissionDb of program info received by the registered
  *     departments
  * @return the DB of program info, keyed by program name
  */
-static AdmissionDb *admissionPhase1()
+static AdmissionDb *admissionPhase1(int admission)
 {
-    /* create the server socket */
-    int admission = createAdmissionSocket();
-
-    /* announce TCP port and IP address */
-    announceConnection("The admission office", "", admission);
-
     /* create an empty DB */
     AdmissionDb *aDb = aDbCreate();
     assert(aDb);
@@ -284,13 +288,13 @@ static AdmissionDb *admissionPhase1()
     struct DepartmentHandler *handlers = malloc(
         COUNT_DEPARTMENTS * sizeof(struct DepartmentHandler)
     );
-    assert(handlers);
+    assert(handlers && "malloc() failure");
 
     /* for the expected number of registered departments... */
     size_t i = 0;
     for (; i < COUNT_DEPARTMENTS; ++i) {
         /* accept a connection to the next department */
-        int department = acceptDepartment(admission);
+        int department = acceptClient(admission);
 
         /* set the handler arguments */
         struct DepartmentHandler *handler = &handlers[i];
@@ -318,30 +322,90 @@ static AdmissionDb *admissionPhase1()
     /* ready the DB for lookup */
     aDbFinalize(aDb);
 
-    /* close the server socket */
-    assert(close(admission) == 0);
-
     atomicPrintf("End of Phase 1 for the admission office\n");
 
     return aDb;
 }
 
+static void handleStudent(int                student,
+                          const AdmissionDb *aDb)
+{
+}
+
+static void *runHandleStudent(void *arg)
+{
+    const struct StudentHandler *handler = (const struct StudentHandler *) arg;
+
+    /* recv() their program info and store it in the DB */
+    handleStudent(handler->student,
+                  handler->aDb);
+    
+    return NULL;
+}
+
 /**
  * @brief TODO
  */
-static void admissionPhase2(AdmissionDb *aDb)
+static void admissionPhase2(int                admission,
+                            const AdmissionDb *aDb)
 {
-    (void) aDb; /* suppress unused argument warning for now */
+    /* allocate a thread and memory to hold arguments for all COUNT_DEPARTMENTS
+     * expected Department clients */
+    struct StudentHandler *handlers = malloc(
+        COUNT_STUDENTS * sizeof(struct StudentHandler)
+    );
+    assert(handlers && "malloc() failure");
+
+    /* for the expected number of registered students... */
+    size_t i = 0;
+    for (; i < COUNT_STUDENTS; ++i) {
+        /* accept a connection to the next department */
+        int student = acceptClient(admission);
+
+        /* set the handler arguments */
+        struct StudentHandler *handler = &handlers[i];
+        handler->student = student;
+        handler->aDb     = aDb;
+
+        /* handle the Student in a separate thread
+         * s.t. clients can be handled concurrently */
+        assert(pthread_create(&handler->thread,
+                              NULL, /* no pthread attributes */
+                              &runHandleStudent,
+                              handler) == 0);
+    }
+
+    /** TODO: remove */
+    /* join the threads */
+    for (i = 0; i < COUNT_STUDENTS; ++i) {
+        assert(pthread_join(handlers[i].thread,
+                            NULL /* discard retval */) == 0);
+    }
+
+    /* free the handlers once all Students have been served */
+    free(handlers);
 }
 
 
 int main()
 {
-    AdmissionDb *aDb = admissionPhase1();
+    /* create the TCP server socket */
+    int admission = createAdmissionSocket();
 
-    admissionPhase2(aDb);
+    /* announce TCP port and IP address */
+    announceConnection("The admission office", "", admission);
 
+    /* complete phase 1 */
+    AdmissionDb *aDb = admissionPhase1(admission);
+
+    /* complete phase 2 */
+    admissionPhase2(admission, aDb);
+
+    /* detroy the admissions database */
     aDbDestroy(aDb);
+
+    /* close the TCP server socket */
+    assert(close(admission) == 0);
 
     return EXIT_SUCCESS;
 }
