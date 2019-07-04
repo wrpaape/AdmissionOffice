@@ -56,15 +56,15 @@ int openAdmissionListener(uint16_t    port,
                 (const struct sockaddr *) &address,
                 sizeof(address)) == 0);
 
-    announceSocket(client, "for Phase 2", listener);
+    announceSocket(client, " for Phase 2", listener);
 
     return listener;
 }
 
 int readConfig(FILE  *input,
                char   delimiter,
-               char **key,
-               char **value)
+               char ** key,
+               char ** value)
 {
     /* read a line */
     char buffer[1024];
@@ -76,10 +76,11 @@ int readConfig(FILE  *input,
         return 0;
     }
     *split = '\0'; /* split at the delimiter */
-    char *keyCopy = strdup(buffer); /* copy the key */
+    char *const keyCopy = strdup(buffer); /* copy the key */
     if (!keyCopy) {
         return 0;
     }
+
     char *valueBegin = split + 1;
 
     /* remove control characters '\r' or '\n', if they are present at the end
@@ -92,7 +93,7 @@ int readConfig(FILE  *input,
     }
     *valueEnd = '\0';
 
-    char *valueCopy = strdup(valueBegin); /* copy the value */
+    char *const valueCopy = strdup(valueBegin); /* copy the value */
     if (!valueCopy) {
         free(keyCopy);
         return 0;

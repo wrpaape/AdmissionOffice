@@ -27,7 +27,6 @@ static uint16_t parseInput(FILE  *input,
     while (readConfig(input, ':', &key, &value)) {
         if (strncmp(key, INTEREST_KEY, LENGTH_INTEREST_KEY) == 0) {
             long interestNumber = strtol(key + LENGTH_INTEREST_KEY, NULL, 10);
-            free(key);
             assert((interestNumber >= 1) && (interestNumber <= COUNT_MAX_INTERESTS));
             char **interest = &interests[interestNumber - 1];
             assert(!*interest && "Repeat interest provided");
@@ -39,7 +38,7 @@ static uint16_t parseInput(FILE  *input,
             *gpa = value;
 
         } else {
-            assert(0 && "Invalid Key");
+            assert(!"Invalid Key");
         }
         free(key);
     }
@@ -200,13 +199,13 @@ int main()
 {
     uint16_t id = 1;
     for (; id <= COUNT_STUDENTS; ++id) {
-        pid_t forkStatus = fork();
-        if (forkStatus == 0) {
-            /* child process (Student instance) */
+        /* pid_t forkStatus = fork(); */
+        /* if (forkStatus == 0) { */
+        /*     /1* child process (Student instance) *1/ */
             student(id);
-            exit(EXIT_SUCCESS);
-        }
-        assert(forkStatus > 0);
+            /* exit(EXIT_SUCCESS); */
+        /* } */
+        /* assert(forkStatus > 0); */
     }
 
     /* wait for child processes */
