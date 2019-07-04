@@ -13,12 +13,12 @@
  */
 const char *ADMISSION_IP_ADDRESS = "127.0.0.1"; /* localhost */
 
+
 int connectToAdmission(const char *client,
                        const char *trailer)
 {
     /* IPv4 address and connection-oriented protocol */
-    int admission = socket(AF_INET, SOCK_STREAM, 0);
-    assert(admission != -1);
+    int admission = createSocket(SOCK_STREAM);
 
     /* convert the string representation of the IP address */
 	struct sockaddr_in admissionAddress;
@@ -35,11 +35,10 @@ int connectToAdmission(const char *client,
                    sizeof(admissionAddress)) == 0);
 
     /* announce TCP port and IP address */
-    announceConnection(client, trailer, admission);
+    announceSocket(client, trailer, admission);
 
     return admission;
 }
-
 
 int readConfig(FILE  *input,
                char   delimiter,
@@ -80,22 +79,4 @@ int readConfig(FILE  *input,
     *key   = keyCopy;
     *value = valueCopy;
     return 1; /* success */
-}
-
-char *packShort(char     *buffer,
-                uint16_t  integer)
-{
-    uint16_t *shortBuffer = (uint16_t *) buffer;
-    integer = htons(integer); /* switch to network byte order */
-    *shortBuffer++ = integer; /* set and advance buffer */
-    return (char *) shortBuffer;
-}
-
-char *packString(char       *buffer,
-                 const char *string,
-                 uint16_t    length)
-{
-    buffer = packShort(buffer, length);    /* pack the length first */
-    (void) memcpy(buffer, string, length); /* then pack the actual string */
-    return buffer + length;                /* advance the buffer */
 }

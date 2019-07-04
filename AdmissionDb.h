@@ -47,7 +47,7 @@ void aDbFinalize(AdmissionDb *aDb);
  * @param[in]  program      the name of the department program
  * @param[out] minGpa       the minimum GPA required by the program
  * @param[out] departmentId the ID of the department offering this program
- * @return non-zero if info was found, zero if @p program is not in the DB
+ * @return 1 if info was found, 0 if @p program is not in the DB
  */
 int aDbFind(const AdmissionDb *aDb,
             const char        *program,

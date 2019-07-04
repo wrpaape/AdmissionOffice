@@ -77,52 +77,6 @@ static uint16_t readInput(uint16_t   id,
     return countInterests;
 }
 
-static size_t packApplication(uint16_t     id,
-                              const char  *gpa,
-                              char *const *interests,
-                              uint16_t     countInterests,
-                              char       **buffer) 
-{
-    uint16_t lengthGpa = (uint16_t) strlen(gpa);
-
-    uint16_t *interestLengths = calloc(sizeof(*interestLengths),
-                                       countInterests);
-    assert(interestLengths && "calloc() failure");
-
-    size_t lengthInterests = 0;
-    size_t i               = 0;
-    for (; i < countInterests; ++i) {
-        size_t interestLength = strlen(interests[i]);
-        interestLengths[i]  = (uint16_t) interestLength;
-        lengthInterests    += interestLength;
-    }
-
-    /* allocate a buffer big enough */
-    size_t bufferSize = sizeof(id)
-                      + sizeof(lengthGpa) + lengthGpa
-                      + sizeof(countInterests)
-                      + (sizeof(uint16_t) * countInterests)
-                      + lengthInterests;
-
-    char *bufferCursor = malloc(bufferSize);
-    assert(bufferCursor && "malloc() failure");
-    *buffer = bufferCursor;
-
-    /* pack the application message */
-    bufferCursor = packShort(bufferCursor, id);              /* student ID */
-    bufferCursor = packString(bufferCursor, gpa, lengthGpa); /* GPA */
-    bufferCursor = packShort(bufferCursor, countInterests);  /* number of interests */
-    for (i = 0; i < countInterests; ++i) {
-        bufferCursor = packString(bufferCursor,
-                                  interests[i],
-                                  interestLengths[i]); /* interest */
-    }
-
-    free(interestLengths);
-
-    return bufferSize;
-}
-
 static size_t packApplicationPacket(uint16_t     id,
                                     const char  *payload,
                                     char       **buffer) 
@@ -143,13 +97,12 @@ static size_t packApplicationPacket(uint16_t     id,
     (void)         packString(bufferCursor,
                               payload,
                               lengthPayload);   /* payload */
-
     return bufferSize;
 }
 
-static void sendApplicationPacket(int          admission,
-                                  uint16_t     id,
-                                  const char  *payload)
+static void sendApplicationPacket(int         admission,
+                                  uint16_t    id,
+                                  const char *payload)
 {
     /* pack the information up into a single buffer */
     char  *buffer     = NULL;
@@ -174,24 +127,24 @@ static void sendApplication(int          admission,
 
     /* then send the list of interests */
     size_t i = 0;
-    for (; i < countInterests; ++countInterests) {
+    for (; i < countInterests; ++i) {
         sendApplicationPacket(admission, id, interests[i]);
     }
 }
 
-static void apply(uint16_t id)
+static uint16_t receiveAdmissionReply(int admission)
+{
+    return 0;
+}
+
+static uint16_t apply(uint16_t    id,
+                      const char *name)
 {
     char  *gpa        = NULL;
     char  **interests = calloc(sizeof(*interests), COUNT_MAX_INTERESTS);
     assert(interests && "calloc() failure");
 
     uint16_t countInterests = readInput(id, &gpa, interests);
-
-    char name[(sizeof("<Student65535>"))]; /* max required size */
-    assert(snprintf(name,
-                    sizeof(name),
-                    "<Student%u>",
-                    (unsigned int) id) >= 0);
 
     int admission = connectToAdmission(name, "");
 
@@ -202,15 +155,38 @@ static void apply(uint16_t id)
 
     atomicPrintf("Completed sending application for %s.\n", name);
 
-    /* receiveAdmissionReply(admission); */
+    uint16_t countValidPrograms = receiveAdmissionReply(admission);
+
+    atomicPrintf("%s has received the reply from the admission office\n", name);
 
     assert(close(admission) == 0);
+
+    return countValidPrograms;
 }
 
+static char *receiveApplicationResult(uint16_t id)
+{
+    /* uint16_t port = STUDENT_PORTS[id - 1]; */
+    return NULL;
+}
 
 static void student(uint16_t id)
 {
-    apply(id);
+    char name[(sizeof("<Student65535>"))]; /* max required size */
+    assert(snprintf(name,
+                    sizeof(name),
+                    "<Student%u>",
+                    (unsigned int) id) >= 0);
+    uint16_t countValidPrograms = apply(id, name);
+
+    if (countValidPrograms > 0) {
+        char *result = receiveApplicationResult(id);
+        atomicPrintf("%s has received the application result: %s\n",
+                     name, result);
+        free(result);
+    }
+
+    atomicPrintf("End of phase 2 for %s\n", name);
 }
 
 int main()

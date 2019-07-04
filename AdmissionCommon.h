@@ -3,6 +3,8 @@
 
 #include <stdint.h> /* uint16_t */
 
+struct sockaddr_in; /* forward declaraction */
+
 /**
  * the port number of the Admission server
  */
@@ -16,16 +18,52 @@ extern const uint16_t ADMISSION_PORT_NUMBER;
 void atomicPrintf(const char *format, ...);
 
 /**
+ * @brief open an IPv4 socket of type @p type
+ * @param[in] type the socket type
+ * @return a valid, opened socket
+ */
+int createSocket(int type);
+
+/**
+ * @brief get the address associated with the socket @p sockFd
+ * @param[in]  sockFd the socket
+ * @param[out] address the socket's address
+ */
+void getAddress(int                 sockFd,
+                struct sockaddr_in *address);
+
+/**
  * @brief print a message to stdout of the form:
  *     <name> has TCP port <port> and IP address <ip><trailer>
  *     where 'port' and 'ip' are the @p socket's TCP port and IPv4 address
  *     respectively
  * @param[in] name    the name of the connection
  * @param[in] trailer the string printed after the IP address
- * @param[in] socket  the TCP connection socket
+ * @param[in] sockFd  the TCP connection socket
  */
-void announceConnection(const char *name,
-                        const char *trailer,
-                        int         socket);
+void announceSocket(const char *name,
+                    const char *trailer,
+                    int         sockFd);
+
+/**
+ * @brief copy @p integer into buffer
+ * @param[in] buffer  the destination buffer
+ * @param[in] integer the value to be copied
+ * @return a pointer past the end of the written @p integer
+ */
+char *packShort(char     *buffer,
+                uint16_t  integer);
+
+/**
+ * @brief copy the variable-length @p string into buffer.  The provided @p
+ *     length will be written first, followed by @p length bytes of @p string.
+ * @param[in] buffer  the destination buffer
+ * @param[in] string the value to be copied
+ * @param[in] length the length of the provided string
+ * @return a pointer past the end of the written @p string
+ */
+char *packString(char       *buffer,
+                 const char *string,
+                 uint16_t    length);
 
 #endif /* ifndef ADMISSION_COMMON_H */
