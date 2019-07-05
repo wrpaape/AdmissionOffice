@@ -2,6 +2,39 @@
 #define ADMISSION_COMMON_H
 
 #include <stdint.h> /* uint16_t */
+#include <ctype.h>  /* isprint */
+
+#ifdef DEBUG
+#   define DEBUG_LOG(format, ...) do { \
+    atomicPrintf("DEBUG: %s - " format "\n", \
+                 __func__, \
+                 ##__VA_ARGS__); \
+} while (0)
+
+#   define DEBUG_STRING(string, length, format, ...) do { \
+    flockfile(stdout); \
+    (void) printf("DEBUG: %s - " format ": \"", \
+                 __func__, \
+                 ##__VA_ARGS__); \
+    const char   *str       = (string); \
+    const size_t  strLength = (length); \
+    size_t i = 0; \
+    for (; i < strLength; ++i) { \
+        char letter = str[i]; \
+        if (isprint(letter)) { \
+            (void) putc_unlocked(str[i], stdout); \
+        } else { \
+            (void) printf("0x%02x", (unsigned int) letter); \
+        } \
+    } \
+    (void) putc_unlocked('"',  stdout); \
+    (void) putc_unlocked('\n', stdout); \
+    funlockfile(stdout); \
+} while (0)
+#else
+#   define DEBUG_LOG(...)
+#   define DEBUG_STRING(...)
+#endif /* ifdef DEBUG */
 
 struct sockaddr_in; /* forward declaraction */
 

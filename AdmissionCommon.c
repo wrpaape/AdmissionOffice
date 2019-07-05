@@ -11,7 +11,6 @@
 
 #include "IdDigits.h" /* ID_DIGITS */
 
-
 const uint16_t ADMISSION_PORT_NUMBER = 3300 + ID_DIGITS;
 
 
@@ -117,6 +116,7 @@ char *packString(char       *buffer,
 int receiveShort(int       sockFd,
                  uint16_t *integer)
 {
+    DEBUG_LOG("enter %d", sockFd);
     uint16_t recvInteger = 0;
     if (recv(sockFd,
              &recvInteger,
@@ -126,12 +126,14 @@ int receiveShort(int       sockFd,
     }
 
     *integer = ntohs(recvInteger);
+    DEBUG_LOG("%d received: %u", sockFd, (unsigned int)*integer);
     return 1;
 }
 
 int receiveString(int    sockFd,
                   char **string)
 {
+    DEBUG_LOG("enter %d", sockFd);
     /* recv() the length */
     uint16_t length = 0;
     if (!receiveShort(sockFd,
@@ -156,5 +158,8 @@ int receiveString(int    sockFd,
 
     recvString[length] = '\0'; /* terminate string */
     *string = recvString;
+
+    DEBUG_STRING(recvString, length, "%d received", sockFd);
+
     return 1;
 }

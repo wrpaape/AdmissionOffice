@@ -84,6 +84,8 @@ static int createAdmissionSocket()
 static int receiveDouble(int     sockFd,
                          double *value)
 {
+    DEBUG_LOG("enter %d", sockFd);
+
     /* doubles are communicated as an ASCII string over the network - read in
      * the raw string */
     char *valueString = NULL;
@@ -98,6 +100,9 @@ static int receiveDouble(int     sockFd,
 
     int conversionSucceeded = (conversionEnd != valueString);
     free(valueString);
+
+    DEBUG_LOG("%d received %f", sockFd, *value);
+
     return conversionSucceeded;
 }
 
@@ -138,13 +143,17 @@ static int receiveProgramInfo(int       department,
  */
 static int acceptClient(int admission)
 {
-    struct sockaddr_in departmentAddress;
-    socklen_t addressLength = sizeof(departmentAddress);
-    (void) memset(&departmentAddress, 0, addressLength);
+    struct sockaddr_in address;
+    socklen_t addressLength = sizeof(address);
+    (void) memset(&address, 0, addressLength);
     int client = accept(admission,
-                        (struct sockaddr *) &departmentAddress,
+                        (struct sockaddr *) &address,
                         &addressLength);
     assert(client != -1);
+
+    DEBUG_LOG("admission office accepted TCP connection from port %u",
+              ntohs(address.sin_port));
+
     return client;
 }
 
@@ -171,7 +180,7 @@ static void handleDepartment(int              department,
         if (prevDepartmentId != 0) {
             /* check that each department message starts with the same ID */
             assert((departmentId == prevDepartmentId)
-                   && "received inconsistent department IDs");
+                   && "Received inconsistent department IDs");
         }
 
         /* insert the program info into the DB */
@@ -273,32 +282,34 @@ static AdmissionDb *admissionPhase1(int       admission,
     return aDb;
 }
 
-int receiveInterest(int        student,
-                    uint16_t   studentId,
-                    char     **program)
+void receiveInterest(int        student,
+                     uint16_t   studentId,
+                     char     **program)
 {
+    DEBUG_LOG("receiving interest from %d", student);
+
     uint16_t recvStudentId = 0;
-    int success = receiveShort(student, &recvStudentId);
-    if (success) {
-        assert(   (recvStudentId == studentId)
-               && "received inconsistent student IDs");
-        success = receiveString(student, program);
-    }
-    return success;
+    assert(receiveShort(student, &recvStudentId) && "missing student ID");
+    assert((recvStudentId == studentId) && "received inconsistent student IDs");
+    assert(receiveString(student, program) && "missing program of interest");
 }
 
 
-static int receiveStudentGpa(int       student,
-                             uint16_t *studentId,
-                             double   *studentGpa)
+static int receiveInitialStudentPacket(int       student,
+                                       uint16_t *studentId,
+                                       double   *studentGpa,
+                                       uint16_t *countInterests)
 {
+    DEBUG_LOG("receiving student ID and GPA...");
     return receiveShort( student, studentId)
-        && receiveDouble(student, studentGpa);
+        && receiveDouble(student, studentGpa)
+        && receiveShort( student, countInterests);
 }
 
 static uint16_t processApplication(int                 student,
                                    uint16_t            studentId,
                                    double              studentGpa,
+                                   uint16_t            countInterests,
                                    const AdmissionDb  *aDb,
                                    char              **admittedProgram,
                                    uint16_t           *admittedDepartmentId)
@@ -307,7 +318,8 @@ static uint16_t processApplication(int                 student,
     uint16_t  firstAdmittedDepartmentId = 0;
     uint16_t  countValidPrograms        = 0;
     char     *program                   = NULL;
-    while (receiveInterest(student, studentId, &program)) {
+    for (; countInterests > 0; --countInterests) {
+        receiveInterest(student, studentId, &program);
         double   minGpa       = 0.0;
         uint16_t departmentId = 0;
         int foundProgram = aDbFind(aDb,
@@ -334,6 +346,8 @@ static uint16_t processApplication(int                 student,
 static void sendApplicationReply(int      student,
                                  uint16_t countValidPrograms)
 {
+    DEBUG_LOG("Sending application reply (%u)",
+              (unsigned int) countValidPrograms);
     char buffer[sizeof(countValidPrograms)];
     (void) packShort(buffer, countValidPrograms);
     assert(send(student,
@@ -352,6 +366,9 @@ static size_t makePhase2Packet(const char  *message,
     char *buffer = malloc(sizePacket);
     assert(buffer && "malloc() failure");
     (void) packString(buffer, message, lengthMessage);
+
+    DEBUG_STRING(buffer, sizePacket, "examining packet");
+
     *packet = buffer;
     return sizePacket;
 }
@@ -489,6 +506,9 @@ static void sendDepartmentAdmission(int                      phase2Socket,
     /* build the department name */
     char departmentName[] = "<Department#>";
     departmentName[sizeof(departmentName) - 3] = dep->letter; /* index of '#' */
+    DEBUG_LOG("sending admission message \"%s\" to %s",
+              message,
+              departmentName);
 
     /* send the message */
     sendPhase2Message(phase2Socket,
@@ -500,18 +520,21 @@ static void sendDepartmentAdmission(int                      phase2Socket,
 
     /* release the message */
     free(message);
-
 }
 
 static void handleStudent(int                student,
                           const AdmissionDb *aDb,
                           const uint32_t    *departmentIps)
 {
-    uint16_t studentId  = 0;
-    double   studentGpa = 0.0;
-    if (!receiveStudentGpa(student,
-                           &studentId,
-                           &studentGpa)) {
+    DEBUG_LOG("handling student %d", student);
+
+    uint16_t studentId      = 0;
+    double   studentGpa     = 0.0;
+    uint16_t countInterests = 0;
+    if (!receiveInitialStudentPacket(student,
+                                     &studentId,
+                                     &studentGpa,
+                                     &countInterests)) {
         /* close() the TCP connection */
         assert(close(student) == 0);
         return;
@@ -521,6 +544,7 @@ static void handleStudent(int                student,
     uint16_t countValidPrograms = processApplication(student,
                                                      studentId,
                                                      studentGpa,
+                                                     countInterests,
                                                      aDb,
                                                      &admittedProgram,
                                                      &admittedDepartmentId);
@@ -597,6 +621,8 @@ static void admissionPhase2(int                admission,
                             const AdmissionDb *aDb,
                             const uint32_t    *departmentIps)
 {
+    DEBUG_LOG("starting Phase 2");
+
     /* allocate a thread and memory to hold arguments for all COUNT_DEPARTMENTS
      * expected Department clients */
     struct StudentHandler *handlers = malloc(
@@ -607,8 +633,12 @@ static void admissionPhase2(int                admission,
     /* for the expected number of registered students... */
     size_t i = 0;
     for (; i < COUNT_STUDENTS; ++i) {
-        /* accept a connection to the next department */
+        DEBUG_LOG("waiting for application from next student...");
+
+        /* accept a connection to the next student */
         int student = acceptClient(admission);
+
+        DEBUG_LOG("accepted connection from student");
 
         /* set the handler arguments */
         struct StudentHandler *handler = &handlers[i];
@@ -624,7 +654,6 @@ static void admissionPhase2(int                admission,
                               handler) == 0);
     }
 
-    /** TODO: remove */
     /* join the threads */
     for (i = 0; i < COUNT_STUDENTS; ++i) {
         assert(pthread_join(handlers[i].thread,
@@ -633,6 +662,8 @@ static void admissionPhase2(int                admission,
 
     /* free the handlers once all Students have been served */
     free(handlers);
+
+    atomicPrintf("End of Phase 2 for the admission office\n");
 }
 
 

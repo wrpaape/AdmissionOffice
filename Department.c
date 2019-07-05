@@ -153,9 +153,14 @@ static const char *getStudentName(char *admissionMessage)
 static void departmentPhase2(const struct Department *dep,
                              const char              *name)
 {
+    DEBUG_LOG("%s enter phase 2", name);
     int listener = openAdmissionListener(dep->port, name);
     char *admissionMessage = NULL;
     while (receiveString(listener, &admissionMessage)) {
+        DEBUG_LOG("%s - received admission message: \"%s\"\n",
+                  name,
+                  admissionMessage);
+
         const char *studentName = getStudentName(admissionMessage);
 
         atomicPrintf("<%s> has been admitted to %s\n", studentName, name);

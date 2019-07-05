@@ -29,22 +29,22 @@ static uint16_t parseInput(FILE  *input,
             long interestNumber = strtol(key + LENGTH_INTEREST_KEY, NULL, 10);
             assert((interestNumber >= 1) && (interestNumber <= COUNT_MAX_INTERESTS));
             char **interest = &interests[interestNumber - 1];
-            assert(!*interest && "Repeat interest provided");
+            assert(!*interest && "repeat interest provided");
             *interest = value;
             ++countInterests;
 
         } else if (strcmp(key, GPA_KEY) == 0) {
-            assert(!*gpa && "Multiple GPAs provided");
+            assert(!*gpa && "multiple GPAs provided");
             *gpa = value;
 
         } else {
-            assert(!"Invalid Key");
+            assert(!"invalid Key");
         }
         free(key);
     }
 
-    assert(*gpa && "No GPA provided");
-    assert((countInterests > 0) && "No interests provided");
+    assert(*gpa && "no GPA provided");
+    assert((countInterests > 0) && "no interests provided");
     return countInterests;
 }
 
@@ -76,42 +76,91 @@ static uint16_t readInput(uint16_t   id,
     return countInterests;
 }
 
-static size_t packApplicationPacket(uint16_t     id,
-                                    const char  *payload,
-                                    char       **buffer) 
+static size_t packInitialPacket(uint16_t     id,
+                                const char  *gpa,
+                                uint16_t     countInterests,
+                                char       **buffer) 
 {
-    uint16_t lengthPayload = (uint16_t) strlen(payload);
+    uint16_t lengthGpa = (uint16_t) strlen(gpa);
 
     /* allocate a buffer big enough */
     size_t bufferSize = sizeof(id)
-                      + sizeof(lengthPayload)
-                      + lengthPayload;
+                      + sizeof(lengthGpa)
+                      + lengthGpa
+                      + sizeof(countInterests);
 
     char *bufferCursor = malloc(bufferSize);
     assert(bufferCursor && "malloc() failure");
     *buffer = bufferCursor;
 
-    /* pack the application packet */
+    /* pack the initial packet */
     bufferCursor = packShort(bufferCursor, id); /* student ID */
-    (void)         packString(bufferCursor,
-                              payload,
-                              lengthPayload);   /* payload */
+    bufferCursor = packString(bufferCursor,
+                              gpa,
+                              lengthGpa);       /* GPA */
+    (void)         packShort(bufferCursor,
+                             countInterests);   /* number of interests */
     return bufferSize;
+
 }
 
-static void sendApplicationPacket(int         admission,
-                                  uint16_t    id,
-                                  const char *payload)
+static void sendInitialPacket(int         admission,
+                              uint16_t    id,
+                              const char *gpa,
+                              uint16_t    countInterests)
 {
     /* pack the information up into a single buffer */
     char  *buffer     = NULL;
-    size_t bufferSize = packApplicationPacket(id, payload, &buffer);
+    size_t bufferSize = packInitialPacket(id, gpa, countInterests, &buffer);
 
     /* send it */
     assert(send(admission,
                 buffer,
                 bufferSize,
                 0) == bufferSize);
+
+    /* free the temporary buffer */
+    free(buffer);
+}
+
+static size_t packInterest(uint16_t     id,
+                           const char  *interest,
+                           char       **buffer) 
+{
+    uint16_t lengthInterest = (uint16_t) strlen(interest);
+
+    /* allocate a buffer big enough */
+    size_t bufferSize = sizeof(id)
+                      + sizeof(lengthInterest)
+                      + lengthInterest;
+
+    char *bufferCursor = malloc(bufferSize);
+    assert(bufferCursor && "malloc() failure");
+    *buffer = bufferCursor;
+
+    /* pack the interest packet */
+    bufferCursor = packShort(bufferCursor, id); /* student ID */
+    (void)         packString(bufferCursor,
+                              interest,
+                              lengthInterest);   /* interest */
+    return bufferSize;
+}
+
+static void sendInterest(int         admission,
+                         uint16_t    id,
+                         const char *interest)
+{
+    /* pack the information up into a single buffer */
+    char  *buffer     = NULL;
+    size_t bufferSize = packInterest(id, interest, &buffer);
+
+    /* send it */
+    assert(send(admission,
+                buffer,
+                bufferSize,
+                0) == bufferSize);
+
+    /* free the temporary buffer */
     free(buffer);
 }
 
@@ -121,19 +170,27 @@ static void sendApplication(int          admission,
                             char *const *interests,
                             uint16_t     countInterests)
 {
-    /* first send the GPA */
-    sendApplicationPacket(admission, id, gpa);
+    DEBUG_LOG("student%u sending ID and GPA", (unsigned int) id);
+    /* first send the GPA and number of interests */
+    sendInitialPacket(admission, id, gpa, countInterests);
 
     /* then send the list of interests */
     size_t i = 0;
     for (; i < countInterests; ++i) {
-        sendApplicationPacket(admission, id, interests[i]);
+        DEBUG_LOG("student%u sending interest: %s",
+                  (unsigned int) id,
+                  interests[i]);
+        sendInterest(admission, id, interests[i]);
     }
 }
 
 static uint16_t receiveAdmissionReply(int admission)
 {
-    return 0;
+    DEBUG_LOG("awaiting application reply...");
+    uint16_t countValidPrograms = 0;
+    assert(   receiveShort(admission, &countValidPrograms)
+           && "received no reply from application");
+    return countValidPrograms;
 }
 
 static uint16_t apply(uint16_t    id,
@@ -155,6 +212,11 @@ static uint16_t apply(uint16_t    id,
     atomicPrintf("Completed sending application for %s.\n", name);
 
     uint16_t countValidPrograms = receiveAdmissionReply(admission);
+
+    DEBUG_LOG("%s - %u/%u programs are valid",
+              name,
+              (unsigned int) countValidPrograms,
+              (unsigned int) countInterests);
 
     atomicPrintf("%s has received the reply from the admission office\n", name);
 
@@ -187,8 +249,9 @@ static void student(uint16_t id)
     if (countValidPrograms > 0) {
         uint16_t port = STUDENT_PORTS[id - 1];
         char *result  = receiveApplicationResult(port, name);
-        atomicPrintf("%s has received the application result: %s\n",
-                     name, result);
+        atomicPrintf("%s has received the application result\n", name);
+        DEBUG_LOG("%s application result: \"%s\"",
+                  name, result);
         free(result);
     }
 
@@ -199,22 +262,22 @@ int main()
 {
     uint16_t id = 1;
     for (; id <= COUNT_STUDENTS; ++id) {
-        /* pid_t forkStatus = fork(); */
-        /* if (forkStatus == 0) { */
-        /*     /1* child process (Student instance) *1/ */
+        pid_t forkStatus = fork();
+        if (forkStatus == 0) {
+            /* child process (Student instance) */
             student(id);
-            /* exit(EXIT_SUCCESS); */
-        /* } */
-        /* assert(forkStatus > 0); */
+            exit(EXIT_SUCCESS);
+        }
+        assert(forkStatus > 0);
     }
 
     /* wait for child processes */
     int exitStatus  = EXIT_SUCCESS;
-    /* int childStatus = EXIT_SUCCESS;*/
-    /* while (wait(&childStatus) < 0) {*/
-        /* if any child processes fail (nonzero), exit with a nonzero status*/
-    /*     exitStatus |= childStatus;*/
-    /* }*/
+    int childStatus = EXIT_SUCCESS;
+    while (wait(&childStatus) < 0) {
+        /* if any child processes fail (nonzero), exit with a nonzero status */
+        exitStatus |= childStatus;
+    }
 
     return exitStatus;
 }
