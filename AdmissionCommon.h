@@ -2,18 +2,23 @@
 #define ADMISSION_COMMON_H
 
 #include <stdint.h> /* uint16_t */
-#include <ctype.h>  /* isprint */
 
 #ifdef DEBUG
+#include <ctype.h>   /* isprint */
+#include <syscall.h> /* syscall(SYS_gettid) */
+#include <unistd.h>  /* syscall(SYS_gettid) */
+
 #   define DEBUG_LOG(format, ...) do { \
-    atomicPrintf("DEBUG: %s - " format "\n", \
+    atomicPrintf("DEBUG(%ld): %s - " format "\n", \
+                 syscall(SYS_gettid), \
                  __func__, \
                  ##__VA_ARGS__); \
 } while (0)
 
 #   define DEBUG_STRING(string, length, format, ...) do { \
     flockfile(stdout); \
-    (void) printf("DEBUG: %s - " format ": \"", \
+    (void) printf("DEBUG(%ld): %s - " format ": \"", \
+                 syscall(SYS_gettid), \
                  __func__, \
                  ##__VA_ARGS__); \
     const char   *str       = (string); \

@@ -61,6 +61,50 @@ int openAdmissionListener(uint16_t    port,
     return listener;
 }
 
+int listenForString(int    listener,
+                    char **string)
+{
+    DEBUG_LOG("enter %d", listener);
+
+    /* peek (MSG_PEEK) at the length */
+    uint16_t length = 0;
+    if (recv(listener,
+             &length,
+             sizeof(length),
+             MSG_PEEK) != sizeof(length)) {
+        return 0;
+    }
+    length = ntohs(length); /* correct the byte order */
+
+    /* allocate room for <length> + the string */
+    size_t sizeBuffer = sizeof(length) + length;
+    char *recvString = malloc(sizeBuffer);
+    if (!recvString) {
+        return 0;
+    }
+
+    /* recv() the <length> + string */
+    if (recv(listener,
+             recvString,
+             sizeBuffer,
+             0) != (ssize_t) sizeBuffer) {
+        free(recvString);
+        return 0;
+    }
+
+    /* overwrite the <length> header */
+    (void) memmove(recvString,
+                   recvString + sizeof(length),
+                   length);
+
+    recvString[length] = '\0'; /* terminate string */
+    *string = recvString;
+
+    DEBUG_STRING(recvString, length, "%d received", listener);
+
+    return 1;
+}
+
 int readConfig(FILE  *input,
                char   delimiter,
                char ** key,

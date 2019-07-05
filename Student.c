@@ -232,8 +232,8 @@ static char *receiveApplicationResult(uint16_t    port,
     int listener = openAdmissionListener(port, name);
 
     char *result = NULL;
-    assert(receiveString(listener,
-                         &result) && "no application result");
+    assert(listenForString(listener,
+                           &result) && "no application result");
 
     return result;
 }

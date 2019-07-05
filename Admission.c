@@ -380,7 +380,6 @@ static void sendPhase2Message(int         phase2Socket,
                               const char *messageDescription,
                               const char *destinationName)
 {
-
 	struct sockaddr_in destinationAddress;
     (void) memset(&destinationAddress, 0, sizeof(destinationAddress));
 	destinationAddress.sin_family      = AF_INET;
@@ -389,6 +388,9 @@ static void sendPhase2Message(int         phase2Socket,
 
     char *packet = NULL;
     size_t sizePacket = makePhase2Packet(message, &packet);
+
+    DEBUG_STRING(packet, sizePacket, "phase 2 message");
+
 
     assert(sendto(phase2Socket,
                   packet,

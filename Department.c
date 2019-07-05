@@ -155,8 +155,9 @@ static void departmentPhase2(const struct Department *dep,
 {
     DEBUG_LOG("%s enter phase 2", name);
     int listener = openAdmissionListener(dep->port, name);
+
     char *admissionMessage = NULL;
-    while (receiveString(listener, &admissionMessage)) {
+    while (listenForString(listener, &admissionMessage)) {
         DEBUG_LOG("%s - received admission message: \"%s\"\n",
                   name,
                   admissionMessage);

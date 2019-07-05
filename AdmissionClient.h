@@ -25,6 +25,12 @@ int openAdmissionListener(uint16_t    port,
                           const char *client);
 
 /**
+ * TODO
+ */
+int listenForString(int    listener,
+                    char **string);
+
+/**
  * @brief read a config line of the form <key><delimiter><value> from @p input
  * @param[in]  input     the file containing the line
  * @param[in]  delimiter the delimiter character
