@@ -1,9 +1,13 @@
 #include "AdmissionClient.h"
 
-#include <stdlib.h>     /* free */
+#include <stdlib.h>     /* free() */
+#include <stdio.h>      /* snprintf() */
 #include <string.h>     /* string utilities */
-#include <arpa/inet.h>  /* htons */
-#include <assert.h>     /* assert */
+#include <arpa/inet.h>  /* htons() */
+#include <sys/types.h>  /* getaddrinfo() */
+#include <sys/socket.h> /* getaddrinfo() */
+#include <netdb.h>      /* getaddrinfo() */
+#include <assert.h>     /* assert() */
 
 #include "AdmissionCommon.h"
 
@@ -40,6 +44,41 @@ int connectToAdmission(const char *client,
     return admission;
 }
 
+static void bindListener(int      listener,
+                         uint16_t port)
+{
+    char portString[sizeof("65535")] = ""; /* big enough for largest port */
+    assert(snprintf(portString,
+                    sizeof(portString),
+                    "%u",
+                    (unsigned int) port) >= 0);
+
+    struct addrinfo hints;
+    (void) memset(&hints, 0, sizeof(hints));
+    hints.ai_family   = AF_INET;    /* force IPv4 */
+    hints.ai_socktype = SOCK_DGRAM; /* UDP */
+    hints.ai_flags    = AI_PASSIVE; /* use my IP */
+
+    struct addrinfo *localInfo = NULL;
+    assert(getaddrinfo(NULL,
+                       portString,
+                       &hints,
+                       &localInfo) == 0);
+
+    struct addrinfo *info = localInfo;
+    for (; info != NULL; info = info->ai_next) {
+        /* attempt to bind() the socket */
+        if (bind(listener,
+                 info->ai_addr,
+                 info->ai_addrlen) == 0) {
+            freeaddrinfo(localInfo);
+            return;
+        }
+    }
+
+    assert(!"bindListener() failure");
+}
+
 int openAdmissionListener(uint16_t    port,
                           const char *client)
 {
@@ -47,18 +86,34 @@ int openAdmissionListener(uint16_t    port,
     int listener = createSocket(SOCK_DGRAM);
 
     /* bind() the socket */
-	struct sockaddr_in address;
-    (void) memset(&address, 0, sizeof(address));
-	address.sin_family      = AF_INET;
-	address.sin_addr.s_addr = getIp(listener);
-	address.sin_port        = htons(port);
-    assert(bind(listener,
-                (const struct sockaddr *) &address,
-                sizeof(address)) == 0);
+    bindListener(listener, port);
+	/* struct sockaddr_in address; */
+    /* (void) memset(&address, 0, sizeof(address)); */
+	/* address.sin_family      = AF_INET; */
+	/* address.sin_addr.s_addr = getIp(listener); */
+	/* address.sin_port        = htons(port); */
+    /* assert(bind(listener, */
+                /* (const struct sockaddr *) &address, */
+                /* sizeof(address)) == 0); */
 
     announceSocket(client, " for Phase 2", listener);
 
     return listener;
+} 
+
+uint16_t peekShort(int sockFd)
+{
+    DEBUG_LOG("enter %d", sockFd);
+    uint16_t peekedShort = 0;
+    if (recv(sockFd,
+             &peekedShort,
+             sizeof(peekedShort),
+             MSG_PEEK) != sizeof(peekedShort)) {
+        return 0;
+    }
+    peekedShort = ntohs(peekedShort); /* correct the byte order */
+    DEBUG_LOG("%d peeked %u", sockFd, (unsigned int) peekedShort);
+    return peekedShort;
 }
 
 int listenForString(int    listener,
@@ -67,14 +122,7 @@ int listenForString(int    listener,
     DEBUG_LOG("enter %d", listener);
 
     /* peek (MSG_PEEK) at the length */
-    uint16_t length = 0;
-    if (recv(listener,
-             &length,
-             sizeof(length),
-             MSG_PEEK) != sizeof(length)) {
-        return 0;
-    }
-    length = ntohs(length); /* correct the byte order */
+    uint16_t length = peekShort(listener);
 
     /* allocate room for <length> + the string */
     size_t sizeBuffer = sizeof(length) + length;

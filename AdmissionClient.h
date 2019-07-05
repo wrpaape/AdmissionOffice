@@ -27,6 +27,11 @@ int openAdmissionListener(uint16_t    port,
 /**
  * TODO
  */
+uint16_t peekShort(int sockFd);
+
+/**
+ * TODO
+ */
 int listenForString(int    listener,
                     char **string);
 

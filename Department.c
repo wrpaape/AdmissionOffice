@@ -143,7 +143,13 @@ static const char *getStudentName(char *admissionMessage)
     return studentName;
 }
 
-
+/**
+ * TODO
+ */
+static int doneListening(int listener)
+{
+    return (peekShort(listener) == 0);
+}
 
 /**
  * @brief the phase 2 routine for a Department instance
@@ -157,7 +163,10 @@ static void departmentPhase2(const struct Department *dep,
     int listener = openAdmissionListener(dep->port, name);
 
     char *admissionMessage = NULL;
-    while (listenForString(listener, &admissionMessage)) {
+    while (!doneListening(listener)) {
+        assert(   listenForString(listener, &admissionMessage)
+               && "expected an admission message");
+
         DEBUG_LOG("%s - received admission message: \"%s\"\n",
                   name,
                   admissionMessage);
@@ -168,6 +177,8 @@ static void departmentPhase2(const struct Department *dep,
 
         free(admissionMessage);
     }
+
+    DEBUG_LOG("%s - received all admission messages", name);
 
     /* close() the UDP connection */
     assert(close(listener) == 0);

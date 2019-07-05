@@ -668,6 +668,41 @@ static void admissionPhase2(int                admission,
     atomicPrintf("End of Phase 2 for the admission office\n");
 }
 
+static void sendAdmissionsDoneTo(int      admissionsDone,
+                                 uint32_t departmentIp,
+                                 uint16_t departmentPort)
+{
+	struct sockaddr_in departmentAddress;
+    (void) memset(&departmentAddress, 0, sizeof(departmentAddress));
+	departmentAddress.sin_family      = AF_INET;
+	departmentAddress.sin_port        = htons(departmentPort);
+	departmentAddress.sin_addr.s_addr = departmentIp;
+
+    static const uint16_t DONE_MESSAGE = 0;
+    assert(sendto(admissionsDone,
+                  &DONE_MESSAGE,
+                  sizeof(DONE_MESSAGE),
+                  0,
+                  (const struct sockaddr *) &departmentAddress,
+                  sizeof(departmentAddress)) == sizeof(DONE_MESSAGE));
+}
+
+static void sendAdmissionsDone(const uint32_t *departmentIps)
+{
+    /* create a UDP socket */
+    int admissionsDone = createSocket(SOCK_DGRAM);
+
+    size_t i = 0;
+    for (; i < COUNT_DEPARTMENTS; ++i) {
+        /* tell all waiting departments that no more admissions will be sent */
+        sendAdmissionsDoneTo(admissionsDone,
+                             departmentIps[i],
+                             DEPARTMENTS[i].port);
+    }
+
+    /* close() the UDP socket */
+    assert(close(admissionsDone) == 0);
+}
 
 int main()
 {
@@ -688,7 +723,10 @@ int main()
     /* complete phase 2 */
     admissionPhase2(admission, aDb, departmentIps);
 
-    /* detroy the admissions database */
+    /* tell the departments that the admissions process is over */
+    sendAdmissionsDone(departmentIps);
+
+    /* destroy the admissions database */
     aDbDestroy(aDb);
 
     /* free the department IP addresses */
