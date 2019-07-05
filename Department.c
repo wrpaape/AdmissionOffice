@@ -84,7 +84,7 @@ static void sendDepartmentInfo(int         admission,
     assert(send(admission,
                 buffer,
                 bufferSize,
-                0) == bufferSize);
+                0) == ((ssize_t) bufferSize));
     free(buffer);
 }
 

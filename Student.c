@@ -27,7 +27,8 @@ static uint16_t parseInput(FILE  *input,
     while (readConfig(input, ':', &key, &value)) {
         if (strncmp(key, INTEREST_KEY, LENGTH_INTEREST_KEY) == 0) {
             long interestNumber = strtol(key + LENGTH_INTEREST_KEY, NULL, 10);
-            assert((interestNumber >= 1) && (interestNumber <= COUNT_MAX_INTERESTS));
+            assert(   (interestNumber >= 1)
+                   && ((size_t) interestNumber <= COUNT_MAX_INTERESTS));
             char **interest = &interests[interestNumber - 1];
             assert(!*interest && "repeat interest provided");
             *interest = value;
@@ -117,7 +118,7 @@ static void sendInitialPacket(int         admission,
     assert(send(admission,
                 buffer,
                 bufferSize,
-                0) == bufferSize);
+                0) == (ssize_t) bufferSize);
 
     /* free the temporary buffer */
     free(buffer);
@@ -158,7 +159,7 @@ static void sendInterest(int         admission,
     assert(send(admission,
                 buffer,
                 bufferSize,
-                0) == bufferSize);
+                0) == (ssize_t) bufferSize);
 
     /* free the temporary buffer */
     free(buffer);

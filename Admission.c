@@ -395,7 +395,7 @@ static void sendPhase2Message(int         phase2Socket,
                   sizePacket,
                   0,
                   (const struct sockaddr *) &destinationAddress,
-                  sizeof(destinationAddress)) == sizePacket);
+                  sizeof(destinationAddress)) == (ssize_t) sizePacket);
 
     free(packet);
 
