@@ -40,6 +40,19 @@ int createSocket(int type)
     return sockFd;
 }
 
+void bindToLoopback(int      sockFd,
+                    uint16_t port)
+{
+	struct sockaddr_in address;
+    (void) memset(&address, 0, sizeof(address));
+	address.sin_family      = AF_INET;
+	address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	address.sin_port        = htons(port);
+    assert(bind(sockFd,
+                (const struct sockaddr *) &address,
+                sizeof(address)) == 0);
+}
+
 void getAddress(int                 sockFd,
                 struct sockaddr_in *address)
 {
@@ -51,10 +64,10 @@ void getAddress(int                 sockFd,
     assert(addressLength == sizeof(*address));
 }
 
-uint32_t getIp(int client)
+uint32_t getIp(int sockFd)
 {
     struct sockaddr_in address;
-    getAddress(client, &address);
+    getAddress(sockFd, &address);
     return address.sin_addr.s_addr;
 }
 

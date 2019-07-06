@@ -118,39 +118,22 @@ int connectToAdmission(const char *client,
     return admission;
 }
 
-static void bindListener(int      listener,
-                         uint16_t port)
-{
-    struct addrinfo *localInfo = getAddressInfo(NULL,        /* loopback */
-                                                port,
-                                                SOCK_DGRAM,  /* UDP */
-                                                AI_PASSIVE); /* use my IP */
-    struct addrinfo *info = localInfo;
-    for (; info != NULL; info = info->ai_next) {
-        /* attempt to bind() the socket */
-        if (bind(listener,
-                 info->ai_addr,
-                 info->ai_addrlen) == 0) {
-            freeaddrinfo(localInfo);
-            return;
-        }
-    }
-    assert(!"bindListener() failure");
-}
-
-int openAdmissionListener(uint16_t    port,
-                          const char *client)
+int openAdmissionListener(uint16_t port)
 {
     /* create a socket for receiving messages from the admissions office */
     int listener = createSocket(SOCK_DGRAM);
 
-    /* bind() the socket to the local port */
-    bindListener(listener, port);
-
-    announceSocket(client, " for Phase 2", listener);
+    /* bind() the socket to the loopback address and the provided port */
+    bindToLoopback(listener, port);
 
     return listener;
 } 
+
+void announceAdmissionListener(const char *client,
+                               int         listener)
+{
+    announceSocket(client, " for Phase 2", listener);
+}
 
 uint16_t peekShort(int sockFd)
 {

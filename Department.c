@@ -90,17 +90,17 @@ static void sendDepartmentInfo(int         admission,
 
 /**
  * @brief the phase 1 routine for a Department instance
- * @param[in] dep  this registered Department's information
- * @param[in] id   the ID of a particular registered Department (see
- *     DepartmentRegistrar.h)
- * @param[in] name the name of this Department instance
+ * @param[in] name             the name of this Department instance
+ * @param[in] id               the ID of a particular registered Department
+ *     (see DepartmentRegistrar.h)
+ * @param[in] departmentLetter this registered Department's letter
  */
-static void departmentPhase1(const struct Department *dep,
-                             uint16_t                 id,
-                             const char              *name)
+static void departmentPhase1(const char *name,
+                             uint16_t    id,
+                             char        departmentLetter)
 {
     /* open the config file */
-    FILE *input = openInputFile(dep->letter);
+    FILE *input = openInputFile(departmentLetter);
 
     /* connect to the Admission server */
     int admission = connectToAdmission(name, " for Phase 1");
@@ -128,6 +128,8 @@ static void departmentPhase1(const struct Department *dep,
         "Updating the admission office is done for %s\n",
         name
     );
+
+    atomicPrintf("End of Phase 1 for %s\n", name);
 }
 
 static const char *getStudentName(char *admissionMessage)
@@ -153,14 +155,15 @@ static int doneListening(int listener)
 
 /**
  * @brief the phase 2 routine for a Department instance
- * @param[in] dep  this registered Department's information
- * @param[in] name the name of this Department instance
+ * @param[in] listener the UDP socket to receive admission messages
+ * @param[in] name     the name of this Department instance
  */
-static void departmentPhase2(const struct Department *dep,
-                             const char              *name)
+static void departmentPhase2(const char *name,
+                             int         listener)
+  
 {
     DEBUG_LOG("%s enter phase 2", name);
-    int listener = openAdmissionListener(dep->port, name);
+    announceAdmissionListener(name, listener);
 
     char *admissionMessage = NULL;
     while (!doneListening(listener)) {
@@ -178,10 +181,7 @@ static void departmentPhase2(const struct Department *dep,
         free(admissionMessage);
     }
 
-    DEBUG_LOG("%s - received all admission messages", name);
-
-    /* close() the UDP connection */
-    assert(close(listener) == 0);
+    atomicPrintf("End of Phase 2 for %s\n", name);
 }
 
 /**
@@ -191,15 +191,31 @@ static void departmentPhase2(const struct Department *dep,
  */
 static void department(uint16_t id)
 {
+    /* fetch the Department info */
     const struct Department *dep = &DEPARTMENTS[id - 1];
+
+    /* build the name (for output messages) */
     char name[] = "<Department#>";
     name[sizeof(name) - 3] = dep->letter; /* index of # */
-    departmentPhase1(dep, id, name);
-    departmentPhase2(dep, name);
+
+    /* open the UDP socket at start to prevent race conditions of server
+     * sending before ready */
+    int listener = openAdmissionListener(dep->port);
+
+    /* phase 1 */
+    departmentPhase1(name, id, dep->letter);
+
+    /* phase 2 */
+    departmentPhase2(name, listener);
+
+    /* close() the UDP socket */
+    assert(close(listener) == 0);
 }
 
 int main()
 {
+    /* spawn a child process for all registered Department instances
+     * (see DepartmentRegistrar.h) */
     uint16_t id = 1;
     for (; id <= COUNT_DEPARTMENTS; ++id) {
         pid_t forkStatus = fork();
@@ -208,13 +224,13 @@ int main()
             department(id);
             exit(EXIT_SUCCESS);
         }
-        assert(forkStatus > 0);
+        assert((forkStatus > 0) && "fork() failure");
     }
 
     /* wait for child processes */
     int exitStatus  = EXIT_SUCCESS;
     int childStatus = EXIT_SUCCESS;
-    while (wait(&childStatus) < 0) {
+    while (wait(&childStatus) >= 0) {
         /* if any child processes fail (nonzero), exit with a nonzero status*/
         exitStatus |= childStatus;
     }

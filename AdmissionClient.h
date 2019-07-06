@@ -21,8 +21,13 @@ int connectToAdmission(const char *client,
 /**
  * TODO
  */
-int openAdmissionListener(uint16_t    port,
-                          const char *client);
+int openAdmissionListener(uint16_t port);
+
+/**
+ * TODO
+ */
+void announceAdmissionListener(const char *client,
+                               int         listener);
 
 /**
  * TODO

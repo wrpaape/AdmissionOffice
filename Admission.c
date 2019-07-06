@@ -37,20 +37,6 @@ struct StudentHandler {
     pthread_t          thread;        /** the thread handle */
 };
 
-
-static void bindToLoopback(int      sockFd,
-                           uint16_t port)
-{
-	struct sockaddr_in address;
-    (void) memset(&address, 0, sizeof(address));
-	address.sin_family      = AF_INET;
-	address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-	address.sin_port        = htons(port);
-    assert(bind(sockFd,
-                (const struct sockaddr *) &address,
-                sizeof(address)) == 0);
-}
-
 /**
  * NOTE: this code is mostly reused from my Lab 2 assignment's server socket
  * setup routine create_server_socket()
@@ -338,9 +324,13 @@ static uint16_t processApplication(int                 student,
         if (   !firstAdmittedProgram
             && foundProgram
             && (studentGpa >= minGpa)) {
+            /* highest-priority program accepted */
             firstAdmittedProgram      = program;
             firstAdmittedDepartmentId = departmentId;
         } else {
+            /* not found
+             * or not accepted
+             * or accepted another higher-priority program */
             free(program);
         }
     }
@@ -397,7 +387,9 @@ static void sendPhase2Message(int         phase2Socket,
     char *packet = NULL;
     size_t sizePacket = makePhase2Packet(message, &packet);
 
-    DEBUG_STRING(packet, sizePacket, "phase 2 message");
+    DEBUG_STRING(packet, sizePacket,
+                 "sending phase 2 message to %u",
+                 destinationPort);
 
 
     assert(sendto(phase2Socket,
@@ -431,6 +423,8 @@ static void sendStudentResult(int         phase2Socket,
                     sizeof(studentName),
                     "<Student%u>",
                     (unsigned int) studentId) >= 0);
+
+    /* sleep(2); */
 
     /* send the result */
     sendPhase2Message(phase2Socket,
@@ -555,6 +549,8 @@ static void handleStudent(int                student,
         assert(close(student) == 0);
         return;
     }
+
+    /* process the student's application */
     char     *admittedProgram      = NULL;
     uint16_t  admittedDepartmentId = 0;
     uint16_t countValidPrograms = processApplication(student,
@@ -564,6 +560,13 @@ static void handleStudent(int                student,
                                                      aDb,
                                                      &admittedProgram,
                                                      &admittedDepartmentId);
+
+    atomicPrintf(
+        "The admission office receive the application from <Student%u>\n",
+        (unsigned int) studentId
+    );
+
+
     /* send the reply to the student */
     sendApplicationReply(student, countValidPrograms);
 
@@ -582,6 +585,7 @@ static void handleStudent(int                student,
     /* create a socket for sending results to student and possibly department */
     int phase2Socket = createSocket(SOCK_DGRAM);
 
+    /* bind to loopback address */
     bindToLoopback(phase2Socket,
                    0); /* let port be dynamically assigned after first send() */
 
@@ -720,21 +724,30 @@ static void sendAdmissionsDone(const uint32_t *departmentIps)
     assert(close(admissionsDone) == 0);
 }
 
+static void announceAdmissionSocket(int admission)
+{
+    announceSocket("The admission office", "", admission);
+}
+
 int main()
 {
     /* create the TCP server socket */
     int admission = createAdmissionSocket();
 
     /* announce TCP port and IP address */
-    announceSocket("The admission office", "", admission);
+    announceAdmissionSocket(admission);
 
     /* allocate a table of department IP addresses */
     uint32_t *departmentIps = malloc(  sizeof(*departmentIps)
                                      * COUNT_DEPARTMENTS);
     assert(departmentIps && "malloc() failure");
 
-    /* complete phase 1 */
+    /* complete phase 1
+     * collect the IP of each department from phase 1 connections */
     AdmissionDb *aDb = admissionPhase1(admission, departmentIps);
+
+    /* announce TCP port and IP address again at the start of Phase 2 */
+    announceAdmissionSocket(admission);
 
     /* complete phase 2 */
     admissionPhase2(admission, aDb, departmentIps);

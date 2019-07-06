@@ -212,6 +212,7 @@ static uint16_t apply(uint16_t    id,
 
     atomicPrintf("Completed sending application for %s.\n", name);
 
+
     uint16_t countValidPrograms = receiveAdmissionReply(admission);
 
     DEBUG_LOG("%s - %u/%u programs are valid",
@@ -226,11 +227,8 @@ static uint16_t apply(uint16_t    id,
     return countValidPrograms;
 }
 
-static char *receiveApplicationResult(uint16_t    port,
-                                      const char *name)
+static char *receiveApplicationResult(int listener)
 {
-    int listener = openAdmissionListener(port, name);
-
     char *result = NULL;
     assert(listenForString(listener,
                            &result) && "no application result");
@@ -245,22 +243,38 @@ static void student(uint16_t id)
                     sizeof(name),
                     "<Student%u>",
                     (unsigned int) id) >= 0);
+
+    /* open the UDP socket at start to prevent race conditions of server
+     * sending before ready */
+    uint16_t port = STUDENT_PORTS[id - 1];
+    int listener  = openAdmissionListener(port);
+
+    /* build and send the application and wait for the reply */
     uint16_t countValidPrograms = apply(id, name);
 
     if (countValidPrograms > 0) {
-        uint16_t port = STUDENT_PORTS[id - 1];
-        char *result  = receiveApplicationResult(port, name);
+        /* <Student#> has UDP port ... and IP address ... for Phase 2 */
+        announceAdmissionListener(name, listener);
+
+        /* have at least 1 valid program in application, wait for result from
+         * Admission */
+        char *result = receiveApplicationResult(listener);
+
         atomicPrintf("%s has received the application result\n", name);
-        DEBUG_LOG("%s application result: \"%s\"",
-                  name, result);
+        DEBUG_LOG("%s application result: \"%s\"", name, result);
+
         free(result);
     }
+
+    assert(close(listener) == 0); /* close the UDP socket */
 
     atomicPrintf("End of phase 2 for %s\n", name);
 }
 
 int main()
 {
+    /* spawn a child process for all registered Student instances
+     * (see StudentRegistrar.h) */
     uint16_t id = 1;
     for (; id <= COUNT_STUDENTS; ++id) {
         pid_t forkStatus = fork();
@@ -269,13 +283,13 @@ int main()
             student(id);
             exit(EXIT_SUCCESS);
         }
-        assert(forkStatus > 0);
+        assert((forkStatus > 0) && "fork() failure");
     }
 
     /* wait for child processes */
     int exitStatus  = EXIT_SUCCESS;
     int childStatus = EXIT_SUCCESS;
-    while (wait(&childStatus) < 0) {
+    while (wait(&childStatus) >= 0) {
         /* if any child processes fail (nonzero), exit with a nonzero status */
         exitStatus |= childStatus;
     }

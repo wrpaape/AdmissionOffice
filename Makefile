@@ -1,4 +1,4 @@
-DEBUG = true
+DEBUG = false
 ifeq ($(DEBUG),true)
     EXTRA_CFLAGS = -DDEBUG
 else

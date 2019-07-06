@@ -63,6 +63,12 @@ void atomicPrintf(const char *format, ...);
 int createSocket(int type);
 
 /**
+ * TODO
+ */
+void bindToLoopback(int      sockFd,
+                    uint16_t port);
+
+/**
  * @brief get the address associated with the socket @p sockFd
  * @param[in]  sockFd the socket
  * @param[out] address the socket's address
