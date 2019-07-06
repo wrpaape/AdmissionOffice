@@ -1,35 +1,38 @@
 DEBUG = false
 ifeq ($(DEBUG),true)
-    EXTRA_CFLAGS = -DDEBUG
+    EXTRA_CFLAGS = -DDEBUG -O0 -g
 else
-    EXTRA_CFLAGS = -Werror
+    EXTRA_CFLAGS = -Werror -O3
 endif
 
 CC = gcc
-CFLAGS = -Wall -Wextra -Werror -O0 -g -c -pthread $(EXTRA_CFLAGS)
+CFLAGS = -Wall -Wextra -c -pthread $(EXTRA_CFLAGS)
 LDFLAGS = -lnsl -lresolv -pthread
 TARFLAGS = cvf
 PACKAGE_BASE = ee450_paape_phase
 
-PACKAGE1_CONTENTS = Admission.c \
-                    Department.c \
-                    AdmissionDb.c \
-                    AdmissionDb.h \
-                    AdmissionDbTest.c \
-                    DepartmentRegistrar.c \
-                    DepartmentRegistrar.h \
-                    AdmissionClient.c \
-                    AdmissionClient.h \
-                    AdmissionCommon.c \
-                    AdmissionCommon.h \
-		    IdDigits.h \
-		    Makefile \
-                    readme.txt
+COMMON_CONTENTS = Admission.c \
+                  Department.c \
+                  AdmissionDb.c \
+                  AdmissionDb.h \
+                  AdmissionDbTest.c \
+                  DepartmentRegistrar.c \
+                  DepartmentRegistrar.h \
+                  AdmissionClient.c \
+                  AdmissionClient.h \
+                  AdmissionCommon.c \
+                  AdmissionCommon.h \
+		  IdDigits.h \
+		  Makefile \
 
-PACKAGE2_CONTENTS = $(PACKAGE1_CONTENTS) \
+PACKAGE1_CONTENTS = $(COMMON_CONTENTS) \
+		    readme-phase1.txt
+
+PACKAGE2_CONTENTS = $(COMMON_CONTENTS) \
                     Student.c \
                     StudentRegistrar.c \
-                    StudentRegistrar.h
+                    StudentRegistrar.h \
+		    README.txt
 
 .PHONY: all test package1 package2 docs clean clean-all
 
@@ -67,7 +70,6 @@ Admission.o: Admission.c AdmissionDb.h DepartmentRegistrar.h StudentRegistrar.h 
 	$(CC) $(CFLAGS) $< -o $@
 AdmissionDb.o: AdmissionDb.c AdmissionDb.h
 	$(CC) $(CFLAGS) $< -o $@
-
 
 DepartmentRegistrar.o: DepartmentRegistrar.c DepartmentRegistrar.h IdDigits.h
 	$(CC) $(CFLAGS) $< -o $@

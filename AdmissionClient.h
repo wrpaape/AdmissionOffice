@@ -10,8 +10,8 @@
 
 /**
  * @brief open a TCP connection to the Admission server
- * @param client  the name of the client
- * @param trailer a string that will be appended to the announceSocket()
+ * @param[in] client  the name of the client
+ * @param[in] trailer a string that will be appended to the announceSocket()
  *     message called internally
  * @return a socket handle to the Admission server
  */
@@ -19,7 +19,9 @@ int connectToAdmission(const char *client,
                        const char *trailer);
 
 /**
- * TODO
+ * @brief opens a UDP socket and bind()s it to the loopback address and given
+ *     port
+ * @param[in] port the port to be bind()ed to
  */
 int openAdmissionListener(uint16_t port);
 

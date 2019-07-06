@@ -11,35 +11,36 @@
      * prints a DEBUG statement
      */
 #   define DEBUG_LOG(format, ...) do { \
-    atomicPrintf("DEBUG(%ld): %s - " format "\n", \
-                 syscall(SYS_gettid), \
-                 __func__, \
-                 ##__VA_ARGS__); \
-} while (0)
+        atomicPrintf("DEBUG(%ld): %s - " format "\n", \
+                     syscall(SYS_gettid), \
+                     __func__, \
+                     ##__VA_ARGS__); \
+    } while (0)
+
     /**
      * examines a string
      */
 #   define DEBUG_STRING(string, length, format, ...) do { \
-    flockfile(stdout); \
-    (void) printf("DEBUG(%ld): %s - " format ": \"", \
-                 syscall(SYS_gettid), \
-                 __func__, \
-                 ##__VA_ARGS__); \
-    const char   *str       = (string); \
-    const size_t  strLength = (length); \
-    size_t i = 0; \
-    for (; i < strLength; ++i) { \
-        char letter = str[i]; \
-        if (isprint(letter)) { \
-            (void) putc_unlocked(str[i], stdout); \
-        } else { \
-            (void) printf("0x%02x", (unsigned int) letter); \
+        flockfile(stdout); \
+        (void) printf("DEBUG(%ld): %s - " format ": \"", \
+                     syscall(SYS_gettid), \
+                     __func__, \
+                     ##__VA_ARGS__); \
+        const char   *str       = (string); \
+        const size_t  strLength = (length); \
+        size_t i = 0; \
+        for (; i < strLength; ++i) { \
+            char letter = str[i]; \
+            if (isprint(letter)) { \
+                (void) putc_unlocked(str[i], stdout); \
+            } else { \
+                (void) printf("0x%02x", (unsigned int) letter); \
+            } \
         } \
-    } \
-    (void) putc_unlocked('"',  stdout); \
-    (void) putc_unlocked('\n', stdout); \
-    funlockfile(stdout); \
-} while (0)
+        (void) putc_unlocked('"',  stdout); \
+        (void) putc_unlocked('\n', stdout); \
+        funlockfile(stdout); \
+    } while (0)
 #else
     /**
      * disables DEBUG_LOG()
@@ -73,7 +74,9 @@ void atomicPrintf(const char *format, ...);
 int createSocket(int type);
 
 /**
- * TODO
+ * @brief bind() the socket to the IPv4 loopback address and @p port
+ * @param[in] sockFd the socket
+ * @param[in] port   the port to be bind()ed to
  */
 void bindToLoopback(int      sockFd,
                     uint16_t port);
