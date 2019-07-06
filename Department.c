@@ -121,7 +121,10 @@ static void departmentPhase1(const char *name,
         free(minGpa);
     }
 
+    /* close the Admission server connection */
     assert(close(admission) == 0);
+
+    /* close the config file */
     assert(fclose(input) == 0);
 
     atomicPrintf(
@@ -155,8 +158,8 @@ static int doneListening(int listener)
 
 /**
  * @brief the phase 2 routine for a Department instance
- * @param[in] listener the UDP socket to receive admission messages
  * @param[in] name     the name of this Department instance
+ * @param[in] listener the UDP socket to receive admission messages
  */
 static void departmentPhase2(const char *name,
                              int         listener)

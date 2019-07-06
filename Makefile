@@ -31,7 +31,7 @@ PACKAGE2_CONTENTS = $(PACKAGE1_CONTENTS) \
                     StudentRegistrar.c \
                     StudentRegistrar.h
 
-.PHONY: all test package1 package2 clean clean-all
+.PHONY: all test package1 package2 docs clean clean-all
 
 all:  AdmissionDbTest Admission Department Student
 
@@ -81,9 +81,12 @@ AdmissionClient.o: AdmissionClient.c AdmissionClient.h AdmissionCommon.h
 AdmissionCommon.o: AdmissionCommon.c AdmissionCommon.h IdDigits.h
 	$(CC) $(CFLAGS) $< -o $@
 
+docs: Doxyfile
+	doxygen $<
+
 clean:
 	$(RM) *.o Student Department Admission AdmissionDbTest
 
 clean-all: clean
-	$(RM) $(PACKAGE_BASE)1.tar.gz $(PACKAGE_BASE)2.tar.gz
+	$(RM) $(PACKAGE_BASE)1.tar.gz $(PACKAGE_BASE)2.tar.gz html latex
 

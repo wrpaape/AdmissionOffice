@@ -275,25 +275,25 @@ static AdmissionDb *admissionPhase1(int       admission,
     return aDb;
 }
 
-void receiveInterest(int        student,
-                     uint16_t   studentId,
-                     char     **program)
+char *receiveInterest(int      student,
+                      uint16_t studentId)
 {
     DEBUG_LOG("receiving interest from %d", student);
 
     uint16_t recvStudentId = 0;
     assert(receiveShort(student, &recvStudentId) && "missing student ID");
     assert((recvStudentId == studentId) && "received inconsistent student IDs");
-    assert(receiveString(student, program) && "missing program of interest");
+    char *program = NULL;
+    assert(receiveString(student, &program) && "missing program of interest");
+    return program;
 }
 
-
-static int receiveInitialStudentPacket(int       student,
-                                       uint16_t *studentId,
-                                       double   *studentGpa,
-                                       uint16_t *countInterests)
+static int receiveApplicationHeader(int       student,
+                                    uint16_t *studentId,
+                                    double   *studentGpa,
+                                    uint16_t *countInterests)
 {
-    DEBUG_LOG("receiving student ID and GPA...");
+    DEBUG_LOG("receiving student application header...");
     return receiveShort( student, studentId)
         && receiveDouble(student, studentGpa)
         && receiveShort( student, countInterests);
@@ -310,17 +310,19 @@ static uint16_t processApplication(int                 student,
     char     *firstAdmittedProgram      = NULL;
     uint16_t  firstAdmittedDepartmentId = 0;
     uint16_t  countValidPrograms        = 0;
-    char     *program                   = NULL;
+    /* for the number of programs this student is applying to... */
     for (; countInterests > 0; --countInterests) {
-        receiveInterest(student, studentId, &program);
+        /* recv() the program name */
+        char *program = receiveInterest(student, studentId);
         double   minGpa       = 0.0;
         uint16_t departmentId = 0;
+        /* look up the program from the database of program info */
         int foundProgram = aDbFind(aDb,
                                    program,
                                    &minGpa,
                                    &departmentId);
+        /* if a program is found, increment the count of valid programs */
         countValidPrograms += foundProgram;
-
         if (   !firstAdmittedProgram
             && foundProgram
             && (studentGpa >= minGpa)) {
@@ -328,9 +330,9 @@ static uint16_t processApplication(int                 student,
             firstAdmittedProgram      = program;
             firstAdmittedDepartmentId = departmentId;
         } else {
-            /* not found
-             * or not accepted
-             * or accepted another higher-priority program */
+            /* already accepted another higher-priority program
+             * or program not found
+             * or not accepted to this program (GPA too low) */
             free(program);
         }
     }
@@ -532,56 +534,14 @@ static void sendDepartmentAdmission(int                      phase2Socket,
     free(message);
 }
 
-static void handleStudent(int                student,
-                          const AdmissionDb *aDb,
-                          const uint32_t    *departmentIps)
+static void sendApplicationResults(const char     *admittedProgram,
+                                   uint16_t        admittedDepartmentId,
+                                   uint32_t        studentIp,
+                                   uint16_t        studentId,
+                                   double          studentGpa,
+                                   const uint32_t *departmentIps)
+
 {
-    DEBUG_LOG("handling student %d", student);
-
-    uint16_t studentId      = 0;
-    double   studentGpa     = 0.0;
-    uint16_t countInterests = 0;
-    if (!receiveInitialStudentPacket(student,
-                                     &studentId,
-                                     &studentGpa,
-                                     &countInterests)) {
-        /* close() the TCP connection */
-        assert(close(student) == 0);
-        return;
-    }
-
-    /* process the student's application */
-    char     *admittedProgram      = NULL;
-    uint16_t  admittedDepartmentId = 0;
-    uint16_t countValidPrograms = processApplication(student,
-                                                     studentId,
-                                                     studentGpa,
-                                                     countInterests,
-                                                     aDb,
-                                                     &admittedProgram,
-                                                     &admittedDepartmentId);
-
-    atomicPrintf(
-        "The admission office receive the application from <Student%u>\n",
-        (unsigned int) studentId
-    );
-
-
-    /* send the reply to the student */
-    sendApplicationReply(student, countValidPrograms);
-
-    if (countValidPrograms == 0) {
-        /* close() the TCP connection */
-        assert(close(student) == 0);
-        return;
-    }
-
-    /* save the student's IP from the connection */
-    uint32_t studentIp = getIp(student);
-
-    /* close() the TCP connection */
-    assert(close(student) == 0);
-
     /* create a socket for sending results to student and possibly department */
     int phase2Socket = createSocket(SOCK_DGRAM);
 
@@ -611,8 +571,6 @@ static void handleStudent(int                student,
                                 studentId,
                                 studentGpa,
                                 admittedProgram);
-        free(admittedProgram);
-
     } else {
         /* send the student their rejection message */
         sendStudentRejected(phase2Socket,
@@ -622,6 +580,65 @@ static void handleStudent(int                student,
 
     /* close() the UDP socket */
     assert(close(phase2Socket) == 0);
+
+}
+
+static void handleStudent(int                student,
+                          const AdmissionDb *aDb,
+                          const uint32_t    *departmentIps)
+{
+    DEBUG_LOG("handling student %d", student);
+
+    uint16_t studentId      = 0;
+    double   studentGpa     = 0.0;
+    uint16_t countInterests = 0;
+    if (!receiveApplicationHeader(student,
+                                  &studentId,
+                                  &studentGpa,
+                                  &countInterests)) {
+        /* close() the TCP connection */
+        assert(close(student) == 0);
+        return;
+    }
+
+    char     *admittedProgram      = NULL;
+    uint16_t  admittedDepartmentId = 0;
+    /* receive and process the student's application */
+    uint16_t countValidPrograms = processApplication(student,
+                                                     studentId,
+                                                     studentGpa,
+                                                     countInterests,
+                                                     aDb,
+                                                     &admittedProgram,
+                                                     &admittedDepartmentId);
+    atomicPrintf(
+        "The admission office receive the application from <Student%u>\n",
+        (unsigned int) studentId
+    );
+
+    /* send the reply to the student */
+    sendApplicationReply(student, countValidPrograms);
+
+    /* save the student's IP from the connection */
+    uint32_t studentIp = getIp(student);
+
+    /* close() the TCP connection */
+    assert(close(student) == 0);
+
+    if (countValidPrograms > 0) {
+        /* send Accepted/Rejected to the Student,
+         * and if Accepted, a notice of admission to the department of the
+         * admitted program */
+        sendApplicationResults(admittedProgram,
+                               admittedDepartmentId,
+                               studentIp,
+                               studentId,
+                               studentGpa,
+                               departmentIps);
+    }
+
+    /* done with admitted program */
+    free(admittedProgram);
 }
 
 static void *runHandleStudent(void *arg)

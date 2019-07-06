@@ -185,7 +185,7 @@ static void sendApplication(int          admission,
     }
 }
 
-static uint16_t receiveAdmissionReply(int admission)
+static uint16_t receiveApplicationReply(int admission)
 {
     DEBUG_LOG("awaiting application reply...");
     uint16_t countValidPrograms = 0;
@@ -212,8 +212,7 @@ static uint16_t apply(uint16_t    id,
 
     atomicPrintf("Completed sending application for %s.\n", name);
 
-
-    uint16_t countValidPrograms = receiveAdmissionReply(admission);
+    uint16_t countValidPrograms = receiveApplicationReply(admission);
 
     DEBUG_LOG("%s - %u/%u programs are valid",
               name,
