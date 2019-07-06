@@ -10,6 +10,7 @@
 #include "AdmissionClient.h"  /* client utilties */
 #include "StudentRegistrar.h" /* STUDENTS */
 
+
 static uint16_t parseInput(FILE  *input,
                            char **gpa,
                            char **interests)
@@ -201,10 +202,14 @@ static uint16_t apply(uint16_t    id,
     char  **interests = calloc(sizeof(*interests), COUNT_MAX_INTERESTS);
     assert(interests && "calloc() failure");
 
+    /* parse the GPA and programs of interest from the config file */
     uint16_t countInterests = readInput(id, &gpa, interests);
 
+    /* open a connection to the admission office */
     int admission = connectToAdmission(name, "");
 
+
+    /* send the application to the admission office */
     sendApplication(admission, id, gpa, interests, countInterests);
 
     free(interests);
@@ -212,6 +217,7 @@ static uint16_t apply(uint16_t    id,
 
     atomicPrintf("Completed sending application for %s.\n", name);
 
+    /* receive the reply to the application */
     uint16_t countValidPrograms = receiveApplicationReply(admission);
 
     DEBUG_LOG("%s - %u/%u programs are valid",

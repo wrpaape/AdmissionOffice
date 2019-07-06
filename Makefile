@@ -88,5 +88,5 @@ clean:
 	$(RM) *.o Student Department Admission AdmissionDbTest
 
 clean-all: clean
-	$(RM) $(PACKAGE_BASE)1.tar.gz $(PACKAGE_BASE)2.tar.gz html latex
+	$(RM) -r $(PACKAGE_BASE)1.tar.gz $(PACKAGE_BASE)2.tar.gz html latex
 

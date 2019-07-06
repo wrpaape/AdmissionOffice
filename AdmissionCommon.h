@@ -7,14 +7,18 @@
 #include <ctype.h>   /* isprint */
 #include <syscall.h> /* syscall(SYS_gettid) */
 #include <unistd.h>  /* syscall(SYS_gettid) */
-
+    /**
+     * prints a DEBUG statement
+     */
 #   define DEBUG_LOG(format, ...) do { \
     atomicPrintf("DEBUG(%ld): %s - " format "\n", \
                  syscall(SYS_gettid), \
                  __func__, \
                  ##__VA_ARGS__); \
 } while (0)
-
+    /**
+     * examines a string
+     */
 #   define DEBUG_STRING(string, length, format, ...) do { \
     flockfile(stdout); \
     (void) printf("DEBUG(%ld): %s - " format ": \"", \
@@ -37,7 +41,13 @@
     funlockfile(stdout); \
 } while (0)
 #else
+    /**
+     * disables DEBUG_LOG()
+     */
 #   define DEBUG_LOG(...)
+    /**
+     * disables DEBUG_STRING()
+     */
 #   define DEBUG_STRING(...)
 #endif /* ifdef DEBUG */
 

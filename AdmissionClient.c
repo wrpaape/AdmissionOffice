@@ -70,6 +70,10 @@ static void unlockMutex(void *arg)
     (void) pthread_mutex_unlock(lock);
 }
 
+/**
+ * @brief get the Admission Office's IP address
+ * @details caches the IP on successive calls
+ */
 static uint32_t getAdmissionIp()
 {
     static pthread_mutex_t ADMISSION_IP_LOCK        = PTHREAD_MUTEX_INITIALIZER;
@@ -84,6 +88,7 @@ static uint32_t getAdmissionIp()
     assert(pthread_mutex_lock(&ADMISSION_IP_LOCK) == 0);
 
     if (!ADMISSION_IP_INITIALIZED) {
+        /* have to look up the IP */
         ADMISSION_IP             = lookupAdmissionIp();
         ADMISSION_IP_INITIALIZED = 1;
     }
@@ -184,6 +189,7 @@ int listenForString(int    listener,
 
     DEBUG_STRING(recvString, length, "%d received", listener);
 
+    /* success */
     return 1;
 }
 

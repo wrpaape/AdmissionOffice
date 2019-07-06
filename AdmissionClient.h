@@ -35,7 +35,7 @@ void announceAdmissionListener(const char *client,
 uint16_t peekShort(int sockFd);
 
 /**
- * TODO
+ * @brief read a string packet from a UDP socket @p listener
  */
 int listenForString(int    listener,
                     char **string);

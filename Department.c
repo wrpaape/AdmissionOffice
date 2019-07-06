@@ -149,7 +149,8 @@ static const char *getStudentName(char *admissionMessage)
 }
 
 /**
- * TODO
+ * @brief if receive a UDP packet with a leading 0, interpret that as the end
+ *     of the stream of Program Admission packets
  */
 static int doneListening(int listener)
 {
@@ -169,7 +170,12 @@ static void departmentPhase2(const char *name,
     announceAdmissionListener(name, listener);
 
     char *admissionMessage = NULL;
+    /* until the Admission Office tells us it's done processing applications...
+     */
     while (!doneListening(listener)) {
+
+        /* accept a new program ladmission notification of the form "<Student
+         * Name>#<Student GPA>#<Admitted Program>" */
         assert(   listenForString(listener, &admissionMessage)
                && "expected an admission message");
 
