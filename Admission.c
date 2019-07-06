@@ -37,6 +37,20 @@ struct StudentHandler {
     pthread_t          thread;        /** the thread handle */
 };
 
+
+static void bindToLoopback(int      sockFd,
+                           uint16_t port)
+{
+	struct sockaddr_in address;
+    (void) memset(&address, 0, sizeof(address));
+	address.sin_family      = AF_INET;
+	address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	address.sin_port        = htons(port);
+    assert(bind(sockFd,
+                (const struct sockaddr *) &address,
+                sizeof(address)) == 0);
+}
+
 /**
  * NOTE: this code is mostly reused from my Lab 2 assignment's server socket
  * setup routine create_server_socket()
@@ -60,14 +74,7 @@ static int createAdmissionSocket()
                       sizeof(optionValue)) == 0);
 
     /* bind() the socket */
-	struct sockaddr_in address;
-    (void) memset(&address, 0, sizeof(address));
-	address.sin_family      = AF_INET;
-	address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-	address.sin_port        = htons(ADMISSION_PORT_NUMBER);
-    assert(bind(admission,
-                (const struct sockaddr *) &address,
-                sizeof(address)) == 0);
+    bindToLoopback(admission, ADMISSION_PORT_NUMBER);
 
     /* listen() */
     assert(listen(admission, ADMISSION_BACKLOG) == 0);
@@ -378,7 +385,8 @@ static void sendPhase2Message(int         phase2Socket,
                               uint16_t    destinationPort,
                               const char *message,
                               const char *messageDescription,
-                              const char *destinationName)
+                              const char *destinationName,
+                              int         firstPhase2Message)
 {
 	struct sockaddr_in destinationAddress;
     (void) memset(&destinationAddress, 0, sizeof(destinationAddress));
@@ -398,6 +406,10 @@ static void sendPhase2Message(int         phase2Socket,
                   0,
                   (const struct sockaddr *) &destinationAddress,
                   sizeof(destinationAddress)) == (ssize_t) sizePacket);
+
+    if (firstPhase2Message) {
+        announceSocket("The admission office", " for Phase 2", phase2Socket);
+    }
 
     free(packet);
 
@@ -426,7 +438,8 @@ static void sendStudentResult(int         phase2Socket,
                       studentPort,
                       result,
                       "the application result",
-                      studentName);
+                      studentName,
+                      1);
 }
 
 static void sendStudentAccepted(int         phase2Socket,
@@ -518,7 +531,8 @@ static void sendDepartmentAdmission(int                      phase2Socket,
                       dep->port,
                       message,
                       "one admitted student",
-                      departmentName);
+                      departmentName,
+                      0);
 
     /* release the message */
     free(message);
@@ -567,7 +581,9 @@ static void handleStudent(int                student,
 
     /* create a socket for sending results to student and possibly department */
     int phase2Socket = createSocket(SOCK_DGRAM);
-    announceSocket("The admission office", " for Phase 2", phase2Socket);
+
+    bindToLoopback(phase2Socket,
+                   0); /* let port be dynamically assigned after first send() */
 
     if (admittedProgram) {
         /* retrieve the department information */
@@ -678,7 +694,7 @@ static void sendAdmissionsDoneTo(int      admissionsDone,
 	departmentAddress.sin_port        = htons(departmentPort);
 	departmentAddress.sin_addr.s_addr = departmentIp;
 
-    static const uint16_t DONE_MESSAGE = 0;
+    static const uint16_t DONE_MESSAGE = 0; /* zero reserved for "done" */
     assert(sendto(admissionsDone,
                   &DONE_MESSAGE,
                   sizeof(DONE_MESSAGE),
@@ -692,9 +708,9 @@ static void sendAdmissionsDone(const uint32_t *departmentIps)
     /* create a UDP socket */
     int admissionsDone = createSocket(SOCK_DGRAM);
 
+    /* tell each waiting department that no more admissions will be sent */
     size_t i = 0;
     for (; i < COUNT_DEPARTMENTS; ++i) {
-        /* tell all waiting departments that no more admissions will be sent */
         sendAdmissionsDoneTo(admissionsDone,
                              departmentIps[i],
                              DEPARTMENTS[i].port);
