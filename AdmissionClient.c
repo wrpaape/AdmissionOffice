@@ -7,16 +7,92 @@
 #include <sys/types.h>  /* getaddrinfo() */
 #include <sys/socket.h> /* getaddrinfo() */
 #include <netdb.h>      /* getaddrinfo() */
+#include <pthread.h>    /* pthread_mutex_t */
 #include <assert.h>     /* assert() */
 
 #include "AdmissionCommon.h"
 
 
-/**
- * The IP address of the Admission server
- */
-const char *ADMISSION_IP_ADDRESS = "127.0.0.1"; /* localhost */
+static struct addrinfo* getAddressInfo(const char *node,
+                                       uint16_t    port,
+                                       int         type,
+                                       int         flags)
+{
 
+    char portString[sizeof("65535")] = ""; /* big enough for largest port */
+    assert(snprintf(portString,
+                    sizeof(portString),
+                    "%u",
+                    (unsigned int) port) >= 0);
+
+    struct addrinfo hints;
+    (void) memset(&hints, 0, sizeof(hints));
+    hints.ai_family   = AF_INET; /* force IPv4 */
+    hints.ai_socktype = type;    /* TCP */
+    hints.ai_flags    = flags;   /* TCP */
+
+    struct addrinfo *info = NULL;
+    assert(getaddrinfo(node,
+                       portString,
+                       NULL,
+                       &info) == 0);
+    return info;
+}
+
+static uint32_t lookupAdmissionIp()
+{
+    /**
+     * The node where the Admission server is running
+     */
+    static const char *ADMISSION_NODE = "localhost";
+
+    struct addrinfo *admissionInfo = getAddressInfo(ADMISSION_NODE,
+                                                    ADMISSION_PORT_NUMBER,
+                                                    SOCK_STREAM,
+                                                    0);
+    assert(admissionInfo && "failed to find admission address info");
+    assert(   (admissionInfo->ai_family == AF_INET)
+           && "no available IPv4 address");
+    const struct sockaddr_in *ipv4Address
+        = (const struct sockaddr_in*) admissionInfo->ai_addr;
+    assert(ipv4Address && "null IPv4 address");
+
+    uint32_t admissionIp = ipv4Address->sin_addr.s_addr;
+
+    freeaddrinfo(admissionInfo);
+
+    return admissionIp;
+}
+
+static void unlockMutex(void *arg)
+{
+    pthread_mutex_t *lock = (pthread_mutex_t *) arg;
+    (void) pthread_mutex_unlock(lock);
+}
+
+static uint32_t getAdmissionIp()
+{
+    static pthread_mutex_t ADMISSION_IP_LOCK        = PTHREAD_MUTEX_INITIALIZER;
+    static uint32_t        ADMISSION_IP             = 0;
+    static int             ADMISSION_IP_INITIALIZED = 0;
+
+    uint32_t admissionIp = 0;
+
+    /* unlock in case getaddrinfo is cancelled */
+    pthread_cleanup_push(&unlockMutex, &ADMISSION_IP_LOCK);
+
+    assert(pthread_mutex_lock(&ADMISSION_IP_LOCK) == 0);
+
+    if (!ADMISSION_IP_INITIALIZED) {
+        ADMISSION_IP             = lookupAdmissionIp();
+        ADMISSION_IP_INITIALIZED = 1;
+    }
+    admissionIp = ADMISSION_IP;
+
+    pthread_cleanup_pop(1); /* unlock the mutex */
+
+    return admissionIp;
+}
 
 int connectToAdmission(const char *client,
                        const char *trailer)
@@ -27,11 +103,9 @@ int connectToAdmission(const char *client,
     /* convert the string representation of the IP address */
 	struct sockaddr_in admissionAddress;
     (void) memset(&admissionAddress, 0, sizeof(admissionAddress));
-	admissionAddress.sin_family = AF_INET;
-	admissionAddress.sin_port   = htons(ADMISSION_PORT_NUMBER);
-	assert(inet_pton(AF_INET,
-                     ADMISSION_IP_ADDRESS,
-                     &admissionAddress.sin_addr) == 1);
+	admissionAddress.sin_family      = AF_INET;
+	admissionAddress.sin_port        = htons(ADMISSION_PORT_NUMBER);
+    admissionAddress.sin_addr.s_addr = getAdmissionIp();
 
     /* connect() */
 	assert(connect(admission,
@@ -47,24 +121,10 @@ int connectToAdmission(const char *client,
 static void bindListener(int      listener,
                          uint16_t port)
 {
-    char portString[sizeof("65535")] = ""; /* big enough for largest port */
-    assert(snprintf(portString,
-                    sizeof(portString),
-                    "%u",
-                    (unsigned int) port) >= 0);
-
-    struct addrinfo hints;
-    (void) memset(&hints, 0, sizeof(hints));
-    hints.ai_family   = AF_INET;    /* force IPv4 */
-    hints.ai_socktype = SOCK_DGRAM; /* UDP */
-    hints.ai_flags    = AI_PASSIVE; /* use my IP */
-
-    struct addrinfo *localInfo = NULL;
-    assert(getaddrinfo(NULL,
-                       portString,
-                       &hints,
-                       &localInfo) == 0);
-
+    struct addrinfo *localInfo = getAddressInfo(NULL,        /* loopback */
+                                                port,
+                                                SOCK_DGRAM,  /* UDP */
+                                                AI_PASSIVE); /* use my IP */
     struct addrinfo *info = localInfo;
     for (; info != NULL; info = info->ai_next) {
         /* attempt to bind() the socket */
@@ -75,7 +135,6 @@ static void bindListener(int      listener,
             return;
         }
     }
-
     assert(!"bindListener() failure");
 }
 
@@ -85,16 +144,8 @@ int openAdmissionListener(uint16_t    port,
     /* create a socket for receiving messages from the admissions office */
     int listener = createSocket(SOCK_DGRAM);
 
-    /* bind() the socket */
+    /* bind() the socket to the local port */
     bindListener(listener, port);
-	/* struct sockaddr_in address; */
-    /* (void) memset(&address, 0, sizeof(address)); */
-	/* address.sin_family      = AF_INET; */
-	/* address.sin_addr.s_addr = getIp(listener); */
-	/* address.sin_port        = htons(port); */
-    /* assert(bind(listener, */
-                /* (const struct sockaddr *) &address, */
-                /* sizeof(address)) == 0); */
 
     announceSocket(client, " for Phase 2", listener);
 

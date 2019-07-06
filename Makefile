@@ -1,7 +1,12 @@
-# DEBUG_FLAG =
-DEBUG_FLAG = -DDEBUG
+DEBUG = true
+ifeq ($(DEBUG),true)
+    EXTRA_CFLAGS = -DDEBUG
+else
+    EXTRA_CFLAGS = -Werror
+endif
+
 CC = gcc
-CFLAGS = -Wall -Wextra -Werror -O0 -g -c -pthread $(DEBUG_FLAG)
+CFLAGS = -Wall -Wextra -Werror -O0 -g -c -pthread $(EXTRA_CFLAGS)
 LDFLAGS = -lnsl -lresolv -pthread
 TARFLAGS = cvf
 PACKAGE_BASE = ee450_paape_phase
